@@ -83,6 +83,18 @@
         border: solid 1px $state-danger-border;
       }
 
+      .organization-credentials-content {
+        margin-top: ($baseline*1.6);
+        .org-credentials-wrapper input {
+          width: 75%;
+          margin: ($baseline*0.8) 0;
+        }
+        .action-update-org-credentials {
+          margin-top: ($baseline*1.6);
+        }
+
+      }
+
       .transcript-preferance-wrapper {
         margin-top: ($baseline*1.6);
         .icon.fa-info-circle {
@@ -99,6 +111,7 @@
 
       .error-info {
         @include font-size(16);
+        @include margin-left($baseline/2);
       }
 
       .transcript-preferance-label {
@@ -107,10 +120,15 @@
         font-weight: font-weight(semi-bold);
       }
 
-      .transcript-provider-group, .transcript-turnaround, .transcript-fidelity  {
+      .transcript-provider-group, .selected-transcript-provider,  .transcript-turnaround, .transcript-fidelity  {
         margin-top: ($baseline*0.8);
       }
 
+      .selected-transcript-provider {
+        .action-change-provider {
+          @include margin-left($baseline/2);
+        }
+      }
 
       .transcript-provider-group {
         input[type=radio]  {
@@ -152,6 +170,17 @@
           }
         }
       }
+    }
+
+    .transcription-account-details {
+      margin-top: ($baseline*0.8);
+      span {
+        @include font-size(15);
+      }
+    }
+
+    .action-update-org-credentials {
+      margin-top: ($baseline*1.6);
     }
 
     .course-video-settings-footer {

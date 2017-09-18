@@ -134,10 +134,7 @@ define(
                 // Create view with empty data.
                 renderCourseVideoSettingsView(null, null);
 
-                expect($courseVideoSettingsEl.find('.transcript-provider-group').html()).toEqual('');
-                expect($courseVideoSettingsEl.find('#transcript-turnaround').html()).toEqual('');
-                expect($courseVideoSettingsEl.find('#transcript-fidelity').html()).toEqual('');
-                expect($courseVideoSettingsEl.find('#transcript-language').html()).toEqual('');
+                expect($courseVideoSettingsEl.find('.course-video-transcript-preferances-wrapper').html()).toEqual('');
             });
 
             it('populates transcription plans correctly', function() {
@@ -148,7 +145,7 @@ define(
 
             it('populates active preferances correctly', function() {
                 // First check preferance are selected correctly in HTML.
-                expect($courseVideoSettingsEl.find('.transcript-provider-group input:checked').val()).toEqual(
+                expect($courseVideoSettingsEl.find('.selected-transcript-provider span').html()).toEqual(
                     activeTranscriptPreferences.provider
                 );
                 expect($courseVideoSettingsEl.find('#transcript-turnaround').val()).toEqual(

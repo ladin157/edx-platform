@@ -3,11 +3,18 @@
  */
 define([
     'jquery', 'backbone', 'underscore', 'gettext', 'moment',
+    'common/js/components/utils/view_utils',
     'edx-ui-toolkit/js/utils/html-utils',
     'edx-ui-toolkit/js/utils/string-utils',
-    'text!templates/course-video-settings.underscore'
+    'text!templates/course-video-settings.underscore',
+    'text!templates/course-video-transcript-preferences.underscore',
+    'text!templates/course-video-transcript-provider-empty.underscore',
+    'text!templates/course-video-transcript-provider-selected.underscore',
+    'text!templates/transcript-organization-credentials.underscore'
 ],
-function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSettingsTemplate) {
+function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, TranscriptSettingsTemplate,
+         TranscriptPreferencesTemplate, TranscriptProviderEmptyStateTemplate, TranscriptProviderSelectedStateTemplate,
+         OrganizationCredentialsTemplate) {
     'use strict';
 
     var CourseVideoSettingsView,
@@ -23,6 +30,8 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
             'change #transcript-fidelity': 'fidelitySelected',
             'click .action-add-language': 'languageSelected',
             'click .action-remove-language': 'languageRemoved',
+            'click .action-change-provider': 'changeOrganizationCredentials',
+            'click .action-update-org-credentials': 'updateOrgCredentials',
             'click .action-update-course-video-settings': 'updateCourseVideoSettings',
             'click .action-close-course-video-settings': 'closeCourseVideoSettings'
         },
@@ -33,8 +42,17 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
             this.availableTranscriptionPlans = videoTranscriptSettings.transcription_plans;
             this.transcriptHandlerUrl = videoTranscriptSettings.transcript_preferences_handler_url;
             this.template = HtmlUtils.template(TranscriptSettingsTemplate);
+            this.transcriptPreferencesTemplate = HtmlUtils.template(TranscriptPreferencesTemplate);
+            this.organizationCredentialsTemplate = HtmlUtils.template(OrganizationCredentialsTemplate);
+            this.transcriptProviderEmptyStateTemplate = HtmlUtils.template(TranscriptProviderEmptyStateTemplate);
+            this.transcriptProviderSelectedStateTemplate = HtmlUtils.template(TranscriptProviderSelectedStateTemplate);
             this.setActiveTranscriptPlanData();
             this.selectedLanguages = [];
+            // TODO: these values would be available through backend. By default, these would be false.
+            this.organizationCredentials = {
+                Cielo24: false,
+                '3PlayMedia': false
+            };
         },
 
         registerCloseClickHandler: function() {
@@ -48,8 +66,12 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
 
             // Click anywhere outside the course video settings pane would close the pane.
             $(document).click(function(event) {
-                // if the target of the click isn't the container nor a descendant of the contain
-                if (!self.$el.is(event.target) && self.$el.has(event.target).length === 0) {
+                var target = event.target,
+                    promptWarningClass = '.wrapper-prompt-warning';
+                // If the target of the click isn't the container nor a descendant of the contain
+                if (!self.$el.is(target) && self.$el.has(target).length === 0 &&
+                    // Or target isn't the prompt warning box or it's descendants
+                    !$(promptWarningClass).is(target) && $(target).parents(promptWarningClass).length === 0) {
                     self.closeCourseVideoSettings();
                 }
             });
@@ -121,9 +143,27 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
         },
 
         providerSelected: function(event) {
+            var $orgCredentailsWrapperEl = this.$el.find('.organization-credentials-wrapper'),
+                $transcriptPreferencesWrapperEl = this.$el.find('.course-video-transcript-preferances-wrapper');
+
             this.resetPlanData();
             this.selectedProvider = event.target.value;
-            this.renderPreferences();
+
+            if (!this.selectedProvider) {
+                // Hide organization credentials and transcript preferences views
+                $orgCredentailsWrapperEl.hide();
+                $transcriptPreferencesWrapperEl.hide();
+
+                // Show main footer again
+                this.$el.find('.course-video-settings-footer').show();
+                return;
+            }
+            // If org provider specific credentials are present
+            if (this.organizationCredentials[this.selectedProvider]) {
+                this.renderTranscriptPreferences();
+            } else {
+                this.renderOrganizationCredentials();
+            }
         },
 
         languageSelected: function(event) {
@@ -150,43 +190,53 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
             $(event.target.parentElement).parent().remove();
 
             // Remove language from selected languages.
-            this.selectedLanguages = _.without(this.selectedLanguages, selectedLanguage);
+            this.selectedLanguages = this.activeLanguages = _.without(this.selectedLanguages, selectedLanguage);
 
             // Populate menu again to reflect latest changes.
             this.populateLanguageMenu();
         },
 
-        renderProviders: function() {
-            var self = this,
-                providerPlan = self.availableTranscriptionPlans,
-                $providerEl = self.$el.find('.transcript-provider-group');
+        renderProviders: function(state) {
+            var state = state ? state : this.selectedProvider ? 'selected' : 'empty',
+                $transcriptProviderWrapperEl = this.$el.find('.transcript-provider-wrapper');
 
-            if (providerPlan) {
+            if (!this.availableTranscriptionPlans) {
+                return;
+            }
+            if (state === 'empty') {
                 HtmlUtils.setHtml(
-                    $providerEl,
-                    HtmlUtils.interpolateHtml(
-                        HtmlUtils.HTML('<input type="radio" id="transcript-provider-none" name="transcript-provider" value="" {checked}/><label for="transcript-provider-none">{text}</label>'),    // eslint-disable-line max-len
-                        {
-                            text: gettext('N/A'),
-                            checked: self.selectedProvider === '' ? 'checked' : ''
-                        }
-                    )
-                );
-
-                _.each(providerPlan, function(providerObject, key) {
-                    var checked = self.selectedProvider === key ? 'checked' : '';
-                    HtmlUtils.append(
-                        $providerEl,
-                        HtmlUtils.interpolateHtml(
-                            HtmlUtils.HTML('<input type="radio" id="transcript-provider-{value}" name="transcript-provider" value="{value}" {checked}/><label for="transcript-provider-{value}">{text}'),   // eslint-disable-line max-len
+                    $transcriptProviderWrapperEl,
+                    this.transcriptProviderEmptyStateTemplate({
+                        providers: [
                             {
-                                text: providerObject.display_name,
-                                value: key,
-                                checked: checked
+                                key: 'none',
+                                value: '',
+                                name: gettext('N/A'),
+                                checked: this.selectedProvider === '' ? 'checked' : ''
+                            },
+                            {
+                                key: CIELO24,
+                                value: CIELO24,
+                                name: this.availableTranscriptionPlans[CIELO24].display_name,
+                                checked: this.selectedProvider === CIELO24 ? 'checked' : ''
+                            },
+                            {
+                                key: THREE_PLAY_MEDIA,
+                                value: THREE_PLAY_MEDIA,
+                                name: this.availableTranscriptionPlans[THREE_PLAY_MEDIA].display_name,
+                                checked: this.selectedProvider === THREE_PLAY_MEDIA ? 'checked' : ''
                             }
-                        )
-                    );
-                });
+                        ]
+                    })
+                );
+            } else {
+                HtmlUtils.setHtml(
+                    $transcriptProviderWrapperEl,
+                    this.transcriptProviderSelectedStateTemplate({
+                        selectedProvider: this.availableTranscriptionPlans[this.selectedProvider].display_name
+                    })
+                );
+                this.renderTranscriptPreferences();
             }
         },
 
@@ -247,6 +297,10 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
 
         renderLanguages: function() {
             var self = this,
+            // Merge active and selected languages, this handles the case when active languages are present and
+            // user also has selected some languages but not saved, user changes organization credentials,
+            // both active and selected languages should be rendered.
+                selectedLanguages = _.union(self.activeLanguages, self.selectedLanguages),
                 $languagesPreferenceContainer = self.$el.find('.transcript-languages-wrapper'),
                 $languagesContainer = self.$el.find('.languages-container');
 
@@ -258,12 +312,13 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
             // Show language container if provider is 3PlayMedia, else if fidelity is selected.
             if (self.selectedProvider === THREE_PLAY_MEDIA || self.selectedFidelityPlan) {
                 self.availableLanguages = self.getPlanLanguages();
-                _.each(self.activeLanguages, function(activeLanguage) {
+                _.each(selectedLanguages, function(language) {
                     // Only add if not in the list already.
-                    if (_.indexOf(self.selectedLanguages, activeLanguage) === -1) {
-                        self.selectedLanguages.push(activeLanguage);
-                        self.addLanguage(activeLanguage);
+                    if (_.indexOf(self.selectedLanguages, language) === -1) {
+                        self.selectedLanguages.push(language);
                     }
+                    // Show active/ added language language container
+                    self.addLanguage(language);
                 });
                 $languagesPreferenceContainer.show();
                 self.populateLanguageMenu();
@@ -304,13 +359,6 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
             }
         },
 
-        renderPreferences: function() {
-            this.renderProviders();
-            this.renderTurnaround();
-            this.renderFidelity();
-            this.renderLanguages();
-        },
-
         addLanguage: function(language) {
             var $languagesContainer = this.$el.find('.languages-container');
             HtmlUtils.append(
@@ -336,8 +384,9 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
             );
         },
 
-        updateSuccessResponseStatus: function(data) {
-            var dateModified = data ? moment.utc(data.modified).format('ll') : '';
+        updateSuccessResponseStatus: function(data, successMessage) {
+            var dateModified = data ? moment.utc(data.modified).format('ll') : '',
+                successMessage = successMessage ? successMessage : gettext('Settings updated');
 
             // Update last modified date
             if (dateModified) {
@@ -353,7 +402,10 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
                 );
             }
 
-            this.renderResponseStatus(gettext('Settings updated'), 'success');
+            // Now re-render providers state.
+            this.renderProviders();
+
+            this.renderResponseStatus(successMessage, 'success');
             // Sync ActiveUploadListView with latest active plan.
             this.activeTranscriptionPlan = data;
             Backbone.trigger('coursevideosettings:syncActiveTranscriptPreferences', this.activeTranscriptionPlan);
@@ -458,6 +510,36 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
             return isValid;
         },
 
+        validateOrganizationCredentials: function() {
+            var $OrganizationApiKeyWrapperEl,
+                isValid = true,
+                $OrganizationApiSecretWrapperEl = this.$el.find('.' + this.selectedProvider + '-api-secret-wrapper');
+
+            // Explicit None selected case.
+            if (this.selectedProvider === '') {
+                return true;
+            }
+
+            if ($OrganizationApiSecretWrapperEl.find('input').val() === '') {
+                isValid = false;
+                this.addErrorState($OrganizationApiSecretWrapperEl);
+            } else {
+                this.clearPreferenceErrorState($OrganizationApiSecretWrapperEl);
+            }
+
+            if (this.selectedProvider === CIELO24) {
+                $OrganizationApiKeyWrapperEl = this.$el.find('.' + this.selectedProvider + '-api-key-wrapper');
+                if ($OrganizationApiKeyWrapperEl.find('input').val() === '') {
+                    isValid = false;
+                    this.addErrorState($OrganizationApiKeyWrapperEl);
+                } else {
+                    this.clearPreferenceErrorState($OrganizationApiKeyWrapperEl);
+                }
+            }
+
+            return isValid;
+        },
+
         saveTranscriptPreferences: function() {
             var self = this,
                 responseTranscriptPreferences;
@@ -494,6 +576,25 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
             }
         },
 
+        updateOrgCredentials: function() {
+            if (this.validateOrganizationCredentials()) {
+                // TODO: Send an ajax request to backend to save org credentials.
+                // TODO:  Do this after successful response.
+                this.$el.find('.organization-credentials-wrapper').hide();
+
+                // Update org credentials for selected provider
+                this.organizationCredentials[this.selectedProvider] = true;
+
+                this.updateSuccessResponseStatus(
+                    this.activeTranscriptionPlan,
+                    gettext('{selectedProvider} credentials saved').replace(
+                        '{selectedProvider}',
+                        this.availableTranscriptionPlans[this.selectedProvider].display_name
+                    )
+                );
+            }
+        },
+
         updateCourseVideoSettings: function() {
             var $messageWrapperEl = this.$el.find('.course-video-settings-message-wrapper');
             if (this.validateCourseVideoSettings()) {
@@ -501,6 +602,63 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
             } else {
                 $messageWrapperEl.empty();
             }
+        },
+
+        changeOrganizationCredentials: function(event) {
+            var self = this;
+            event.preventDefault();
+
+            ViewUtils.confirmThenRunOperation(
+                gettext('Are you sure you wish to change the transcript provider for your organization?'),
+                gettext('Changing a provider can be a dangerous operation. Learn more about this here.'),  // eslint-disable-line max-len
+                gettext('Yes, Change'),
+                function() {
+                    self.renderOrganizationCredentials();
+                }
+            );
+        },
+
+        renderOrganizationCredentials: function() {
+            var $orgCredentailsWrapperEl = this.$el.find('.organization-credentials-wrapper'),
+                $transcriptPreferencesWrapperEl = this.$el.find('.course-video-transcript-preferances-wrapper');
+
+            // Render empty state providers view.
+            this.renderProviders('empty');
+
+            $transcriptPreferencesWrapperEl.hide();
+
+            HtmlUtils.setHtml(
+                $orgCredentailsWrapperEl,
+                this.organizationCredentialsTemplate({
+                    selectedProvider: {
+                        key: this.selectedProvider,
+                        name: this.availableTranscriptionPlans[this.selectedProvider].display_name
+                    },
+                    CIELO24: CIELO24,
+                    THREE_PLAY_MEDIA: THREE_PLAY_MEDIA
+                })
+            );
+            $orgCredentailsWrapperEl.show();
+            this.$el.find('.course-video-settings-footer').hide();
+        },
+
+        renderTranscriptPreferences: function() {
+            var $transcriptPreferencesWrapperEl = this.$el.find('.course-video-transcript-preferances-wrapper'),
+                $orgCredentialsWrapperEl = this.$el.find('.organization-credentials-wrapper');
+
+            $orgCredentialsWrapperEl.hide();
+
+            HtmlUtils.setHtml(
+                $transcriptPreferencesWrapperEl,
+                this.transcriptPreferencesTemplate({})
+            );
+            $transcriptPreferencesWrapperEl.show();
+
+            this.$el.find('.course-video-settings-footer').show();
+
+            this.renderTurnaround();
+            this.renderFidelity();
+            this.renderLanguages();
         },
 
         render: function() {
@@ -513,7 +671,7 @@ function($, Backbone, _, gettext, moment, HtmlUtils, StringUtils, TranscriptSett
                 })
             );
 
-            this.renderPreferences();
+            this.renderProviders();
 
             this.registerCloseClickHandler();
             this.setFixedCourseVideoSettingsPane();
