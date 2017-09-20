@@ -39,8 +39,10 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
         initialize: function(options) {
             var videoTranscriptSettings = options.videoTranscriptSettings;
             this.activeTranscriptionPlan = options.activeTranscriptPreferences;
+            this.transcriptOrganizationCredentials = _.extend({}, options.transcriptOrganizationCredentials);
             this.availableTranscriptionPlans = videoTranscriptSettings.transcription_plans;
             this.transcriptHandlerUrl = videoTranscriptSettings.transcript_preferences_handler_url;
+            this.transcriptOrgCredentialsHandlerUrl = videoTranscriptSettings.transcript_org_credentials_handler_url;
             this.template = HtmlUtils.template(TranscriptSettingsTemplate);
             this.transcriptPreferencesTemplate = HtmlUtils.template(TranscriptPreferencesTemplate);
             this.organizationCredentialsTemplate = HtmlUtils.template(OrganizationCredentialsTemplate);
@@ -48,11 +50,6 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
             this.transcriptProviderSelectedStateTemplate = HtmlUtils.template(TranscriptProviderSelectedStateTemplate);
             this.setActiveTranscriptPlanData();
             this.selectedLanguages = [];
-            // TODO: these values would be available through backend. By default, these would be false.
-            this.organizationCredentials = {
-                Cielo24: false,
-                '3PlayMedia': false
-            };
         },
 
         registerCloseClickHandler: function() {
@@ -159,7 +156,7 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
                 return;
             }
             // If org provider specific credentials are present
-            if (this.organizationCredentials[this.selectedProvider]) {
+            if (this.transcriptOrganizationCredentials[this.selectedProvider]) {
                 this.renderTranscriptPreferences();
             } else {
                 this.renderOrganizationCredentials();
@@ -511,29 +508,30 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
         },
 
         validateOrganizationCredentials: function() {
-            var $OrganizationApiKeyWrapperEl,
+            var $OrganizationApiSecretWrapperEl,
                 isValid = true,
-                $OrganizationApiSecretWrapperEl = this.$el.find('.' + this.selectedProvider + '-api-secret-wrapper');
+                $OrganizationApiKeyWrapperEl = this.$el.find('.' + this.selectedProvider + '-api-key-wrapper');
+
 
             // Explicit None selected case.
             if (this.selectedProvider === '') {
                 return true;
             }
 
-            if ($OrganizationApiSecretWrapperEl.find('input').val() === '') {
+            if ($OrganizationApiKeyWrapperEl.find('input').val() === '') {
                 isValid = false;
-                this.addErrorState($OrganizationApiSecretWrapperEl);
+                this.addErrorState($OrganizationApiKeyWrapperEl);
             } else {
-                this.clearPreferenceErrorState($OrganizationApiSecretWrapperEl);
+                this.clearPreferenceErrorState($OrganizationApiKeyWrapperEl);
             }
 
-            if (this.selectedProvider === CIELO24) {
-                $OrganizationApiKeyWrapperEl = this.$el.find('.' + this.selectedProvider + '-api-key-wrapper');
-                if ($OrganizationApiKeyWrapperEl.find('input').val() === '') {
+            if (this.selectedProvider === THREE_PLAY_MEDIA) {
+                $OrganizationApiSecretWrapperEl = this.$el.find('.' + this.selectedProvider + '-api-secret-wrapper');
+                if ($OrganizationApiSecretWrapperEl.find('input').val() === '') {
                     isValid = false;
-                    this.addErrorState($OrganizationApiKeyWrapperEl);
+                    this.addErrorState($OrganizationApiSecretWrapperEl);
                 } else {
-                    this.clearPreferenceErrorState($OrganizationApiKeyWrapperEl);
+                    this.clearPreferenceErrorState($OrganizationApiSecretWrapperEl);
                 }
             }
 
@@ -576,22 +574,39 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
             }
         },
 
+        saveTranscriptOrgCredentials: function() {
+            var self = this;
+            // First clear response status if present already
+            this.clearResponseStatus();
+
+            if (self.selectedProvider) {
+                $.postJSON(self.transcriptOrgCredentialsHandlerUrl, {
+                    provider: self.selectedProvider,
+                    global: false   // Do not trigger global AJAX error handler
+                }, function(data) {
+                    self.$el.find('.organization-credentials-wrapper').hide();
+
+                    // Update org credentials for selected provider
+                    self.transcriptOrganizationCredentials[self.selectedProvider] = true;
+
+                    self.updateSuccessResponseStatus(
+                        self.activeTranscriptionPlan,
+                        gettext('{selectedProvider} credentials saved').replace(
+                            '{selectedProvider}',
+                            self.availableTranscriptionPlans[self.selectedProvider].display_name
+                        )
+                    );
+                }).fail(function(jqXHR) {
+                    if (jqXHR.responseText) {
+                        self.updateFailResponseStatus(jqXHR.responseText);
+                    }
+                });
+            }
+        },
+
         updateOrgCredentials: function() {
             if (this.validateOrganizationCredentials()) {
-                // TODO: Send an ajax request to backend to save org credentials.
-                // TODO:  Do this after successful response.
-                this.$el.find('.organization-credentials-wrapper').hide();
-
-                // Update org credentials for selected provider
-                this.organizationCredentials[this.selectedProvider] = true;
-
-                this.updateSuccessResponseStatus(
-                    this.activeTranscriptionPlan,
-                    gettext('{selectedProvider} credentials saved').replace(
-                        '{selectedProvider}',
-                        this.availableTranscriptionPlans[this.selectedProvider].display_name
-                    )
-                );
+                this.saveTranscriptOrgCredentials();
             }
         },
 
