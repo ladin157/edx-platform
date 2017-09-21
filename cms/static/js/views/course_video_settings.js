@@ -28,6 +28,7 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
             'change .transcript-provider-group input': 'providerSelected',
             'change #transcript-turnaround': 'turnaroundSelected',
             'change #transcript-fidelity': 'fidelitySelected',
+            'change #video-source-language': 'videoSourceLanguageSelected',
             'click .action-add-language': 'languageSelected',
             'click .action-remove-language': 'languageRemoved',
             'click .action-change-provider': 'changeOrganizationCredentials',
@@ -80,6 +81,7 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
             this.selectedFidelityPlan = '';
             this.availableLanguages = [];
             this.activeLanguages = [];
+            this.selectedVideoSourceLanguage = '';
             this.selectedLanguages = [];
         },
 
@@ -91,6 +93,7 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
                     this.activeTranscriptionPlan.cielo24_turnaround :
                     this.activeTranscriptionPlan.three_play_turnaround;
                 this.activeLanguages = this.activeTranscriptionPlan.preferred_languages;
+                this.selectedVideoSourceLanguage = this.activeTranscriptionPlan.video_source_language;
             } else {
                 this.resetPlanData();
             }
@@ -131,9 +134,15 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
             this.renderLanguages();
         },
 
+        videoSourceLanguageSelected: function(event) {
+            var $videoSourceLanguageContainer = this.$el.find('.video-source-language-wrapper');
+            this.selectedVideoSourceLanguage = event.target.value;
+            // Remove any error if present already.
+            this.clearPreferenceErrorState($videoSourceLanguageContainer);
+        },
+
         turnaroundSelected: function(event) {
             var $turnaroundContainer = this.$el.find('.transcript-turnaround-wrapper');
-
             this.selectedTurnaroundPlan = event.target.value;
             // Remove any error if present already.
             this.clearPreferenceErrorState($turnaroundContainer);
@@ -302,7 +311,7 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
                 $languagesContainer = self.$el.find('.languages-container');
 
             // Clear error state if present any.
-            this.clearPreferenceErrorState($languagesPreferenceContainer);
+            self.clearPreferenceErrorState($languagesPreferenceContainer);
 
             $languagesContainer.empty();
 
@@ -314,7 +323,7 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
                     if (_.indexOf(self.selectedLanguages, language) === -1) {
                         self.selectedLanguages.push(language);
                     }
-                    // Show active/ added language language container
+                    // Show active/ add language language container
                     self.addLanguage(language);
                 });
                 $languagesPreferenceContainer.show();
@@ -323,6 +332,39 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
                 self.availableLanguages = {};
                 $languagesPreferenceContainer.hide();
             }
+
+            if (self.selectedProvider === THREE_PLAY_MEDIA) {
+                self.populateVideoSourceLanguageMenu();
+            }
+        },
+
+        populateVideoSourceLanguageMenu: function() {
+            var self = this,
+                availableLanguages = self.getPlanLanguages(),
+                $videoSourceLanguageContainer = self.$el.find('.video-source-language-wrapper'),
+                $languageMenuEl = self.$el.find('.video-source-language'),
+                selectOptionEl = new Option(gettext('Select language'), '');
+
+            $videoSourceLanguageContainer.show();
+
+            // We need to set id due to a11y aria-labelledby
+            selectOptionEl.id = 'video-source-language-none';
+
+            HtmlUtils.setHtml(
+                $languageMenuEl,
+                HtmlUtils.HTML(selectOptionEl)
+            );
+
+            _.each(availableLanguages, function(value, key) {
+                var option = new Option(value, key);
+                if (self.selectedVideoSourceLanguage === key) {
+                    option.selected = true;
+                }
+                HtmlUtils.append(
+                    $languageMenuEl,
+                    HtmlUtils.HTML(option)
+                );
+            });
         },
 
         populateLanguageMenu: function() {
@@ -474,7 +516,8 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
             var isValid = true,
                 $turnaroundEl = this.$el.find('.transcript-turnaround-wrapper'),
                 $fidelityEl = this.$el.find('.transcript-fidelity-wrapper'),
-                $languagesEl = this.$el.find('.transcript-languages-wrapper');
+                $languagesEl = this.$el.find('.transcript-languages-wrapper'),
+                $videoSourcelanguageEl = this.$el.find('.video-source-language-wrapper');
 
 
             // Explicit None selected case.
@@ -494,6 +537,13 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
                 this.addErrorState($fidelityEl);
             } else {
                 this.clearPreferenceErrorState($fidelityEl);
+            }
+
+            if (this.selectedProvider === THREE_PLAY_MEDIA && !this.selectedVideoSourceLanguage) {
+                isValid = false;
+                this.addErrorState($videoSourcelanguageEl);
+            } else {
+                this.clearPreferenceErrorState($videoSourcelanguageEl);
             }
 
 
@@ -551,6 +601,7 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
                     cielo24_turnaround: self.selectedProvider === CIELO24 ? self.selectedTurnaroundPlan : '',
                     three_play_turnaround: self.selectedProvider === THREE_PLAY_MEDIA ? self.selectedTurnaroundPlan : '',   // eslint-disable-line max-len
                     preferred_languages: self.selectedLanguages,
+                    video_source_language: self.selectedVideoSourceLanguage,
                     global: false   // Do not trigger global AJAX error handler
                 }, function(data) {
                     responseTranscriptPreferences = data ? data.transcript_preferences : null;
@@ -665,7 +716,10 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
 
             HtmlUtils.setHtml(
                 $transcriptPreferencesWrapperEl,
-                this.transcriptPreferencesTemplate({})
+                this.transcriptPreferencesTemplate({
+                    selectedProvider: this.selectedProvider,
+                    THREE_PLAY_MEDIA: THREE_PLAY_MEDIA
+                })
             );
             $transcriptPreferencesWrapperEl.show();
 
