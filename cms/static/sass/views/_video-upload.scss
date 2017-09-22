@@ -179,6 +179,11 @@
       }
     }
 
+    .transcription-account-details.warning {
+      background-color: $state-warning-bg;
+      padding: ($baseline/2);
+    }
+
     .action-update-org-credentials {
       margin-top: ($baseline*1.6);
     }

@@ -31,7 +31,7 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
             'change #video-source-language': 'videoSourceLanguageSelected',
             'click .action-add-language': 'languageSelected',
             'click .action-remove-language': 'languageRemoved',
-            'click .action-change-provider': 'changeOrganizationCredentials',
+            'click .action-change-provider': 'renderOrganizationCredentials',
             'click .action-update-org-credentials': 'updateOrgCredentials',
             'click .action-update-course-video-settings': 'updateCourseVideoSettings',
             'click .action-close-course-video-settings': 'closeCourseVideoSettings'
@@ -565,7 +565,7 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
 
             // Explicit None selected case.
             if (this.selectedProvider === '') {
-                return true;
+                return false;
             }
 
             if ($OrganizationApiKeyWrapperEl.find('input').val() === '') {
@@ -630,29 +630,29 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
             // First clear response status if present already
             this.clearResponseStatus();
 
-            if (self.selectedProvider) {
-                $.postJSON(self.transcriptOrgCredentialsHandlerUrl, {
-                    provider: self.selectedProvider,
-                    global: false   // Do not trigger global AJAX error handler
-                }, function(data) {
-                    self.$el.find('.organization-credentials-wrapper').hide();
+            // TODO: Send actual organization credentials.
 
-                    // Update org credentials for selected provider
-                    self.transcriptOrganizationCredentials[self.selectedProvider] = true;
+            $.postJSON(self.transcriptOrgCredentialsHandlerUrl, {
+                provider: self.selectedProvider,
+                global: false   // Do not trigger global AJAX error handler
+            }, function() {
+                self.$el.find('.organization-credentials-wrapper').hide();
 
-                    self.updateSuccessResponseStatus(
-                        self.activeTranscriptionPlan,
-                        gettext('{selectedProvider} credentials saved').replace(
-                            '{selectedProvider}',
-                            self.availableTranscriptionPlans[self.selectedProvider].display_name
-                        )
-                    );
-                }).fail(function(jqXHR) {
-                    if (jqXHR.responseText) {
-                        self.updateFailResponseStatus(jqXHR.responseText);
-                    }
-                });
-            }
+                // Update org credentials for selected provider
+                self.transcriptOrganizationCredentials[self.selectedProvider] = true;
+
+                self.updateSuccessResponseStatus(
+                    self.activeTranscriptionPlan,
+                    gettext('{selectedProvider} credentials saved').replace(
+                        '{selectedProvider}',
+                        self.availableTranscriptionPlans[self.selectedProvider].display_name
+                    )
+                );
+            }).fail(function(jqXHR) {
+                if (jqXHR.responseText) {
+                    self.updateFailResponseStatus(jqXHR.responseText);
+                }
+            });
         },
 
         updateOrgCredentials: function() {
@@ -700,6 +700,7 @@ function($, Backbone, _, gettext, moment, ViewUtils, HtmlUtils, StringUtils, Tra
                         key: this.selectedProvider,
                         name: this.availableTranscriptionPlans[this.selectedProvider].display_name
                     },
+                    organizationCredentialsExists : this.transcriptOrganizationCredentials[this.selectedProvider],
                     CIELO24: CIELO24,
                     THREE_PLAY_MEDIA: THREE_PLAY_MEDIA
                 })

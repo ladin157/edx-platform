@@ -9,14 +9,22 @@ define(
                 renderCourseVideoSettingsView,
                 destroyCourseVideoSettingsView,
                 verifyPreferanceErrorState,
+                resetProvider,
+                changeProvider,
                 transcriptPreferencesUrl = '/transcript_preferences/course-v1:edX+DemoX+Demo_Course',
+                transcriptOrgCredentialsHandlerUrl = '/transcript_org_credentials/course-v1:edX+DemoX+Demo_Course',
                 activeTranscriptPreferences = {
                     provider: 'Cielo24',
                     cielo24_fidelity: 'PROFESSIONAL',
                     cielo24_turnaround: 'PRIORITY',
                     three_play_turnaround: '',
+                    video_source_language: '',
                     preferred_languages: ['fr', 'en'],
                     modified: '2017-08-27T12:28:17.421260Z'
+                },
+                transcriptOrganizationCredentials = {
+                    Cielo24: true,
+                    '3PlayMedia': true
                 },
                 transcriptionPlans = {
                     '3PlayMedia': {
@@ -66,13 +74,18 @@ define(
                     }
                 };
 
-            renderCourseVideoSettingsView = function(activeTranscriptPreferencesData, transcriptionPlansData) {
+            renderCourseVideoSettingsView = function(activeTranscriptPreferencesData, transcriptionPlansData, transcriptOrganizationCredentialsData) {
+                // First destroy old referance to the view if present.
+                destroyCourseVideoSettingsView();
+
                 courseVideoSettingsView = new CourseVideoSettingsView({
                     activeTranscriptPreferences: activeTranscriptPreferencesData || null,
                     videoTranscriptSettings: {
                         transcript_preferences_handler_url: transcriptPreferencesUrl,
+                        transcript_org_credentials_handler_url: transcriptOrgCredentialsHandlerUrl,
                         transcription_plans: transcriptionPlansData || null
-                    }
+                    },
+                    transcriptOrganizationCredentials: transcriptOrganizationCredentialsData || null
                 });
                 $courseVideoSettingsEl = courseVideoSettingsView.render().$el;
             };
@@ -90,6 +103,31 @@ define(
                 expect($preferanceContainerEl.hasClass('error')).toEqual(hasError);
                 expect($preferanceContainerEl.find('.error-icon').html()).toEqual($errorIconHtml);
                 expect($preferanceContainerEl.find('.error-info').html()).toEqual(requiredText);
+            };
+
+            changeProvider = function(selectedProvider) {
+                courseVideoSettingsView.providerSelected({
+                    target: {
+                        value: selectedProvider
+                    }
+                });
+            };
+
+            resetProvider = function() {
+                var requests = AjaxHelpers.requests(this);
+
+                // Set no provider selected
+                courseVideoSettingsView.selectedProvider = '';
+                $courseVideoSettingsEl.find('.action-update-course-video-settings').click();
+
+                AjaxHelpers.expectRequest(
+                    requests,
+                    'DELETE',
+                    transcriptPreferencesUrl
+                );
+
+                // Send successful empty content response.
+                AjaxHelpers.respondWithJson(requests, {});
             };
 
             beforeEach(function() {
@@ -128,11 +166,8 @@ define(
             });
 
             it('does not populate transcription plans if transcription plans are not provided', function() {
-                // First detroy old referance to the view.
-                destroyCourseVideoSettingsView();
-
                 // Create view with empty data.
-                renderCourseVideoSettingsView(null, null);
+                renderCourseVideoSettingsView();
 
                 expect($courseVideoSettingsEl.find('.course-video-transcript-preferances-wrapper').html()).toEqual('');
             });
@@ -179,6 +214,7 @@ define(
                         cielo24_turnaround: activeTranscriptPreferences.cielo24_turnaround,
                         three_play_turnaround: activeTranscriptPreferences.three_play_turnaround,
                         preferred_languages: activeTranscriptPreferences.preferred_languages,
+                        video_source_language: activeTranscriptPreferences.video_source_language,
                         global: false
                     })
                 );
@@ -198,21 +234,8 @@ define(
             });
 
             it('removes transcript settings on update settings button click when no provider is selected', function() {
-                var requests = AjaxHelpers.requests(this);
-
-                // Set no provider selected
-                courseVideoSettingsView.selectedProvider = null;
-                $courseVideoSettingsEl.find('.action-update-course-video-settings').click();
-
-                AjaxHelpers.expectRequest(
-                    requests,
-                    'DELETE',
-                    transcriptPreferencesUrl
-                );
-
-                // Send successful empty content response.
-                AjaxHelpers.respondWithJson(requests, {});
-
+                // Reset to N/A provider
+                resetProvider();
                 // Verify that success message is shown.
                 expect($courseVideoSettingsEl.find('.course-video-settings-message-wrapper.success').html()).toEqual(
                     '<div class="course-video-settings-message">' +
@@ -236,6 +259,7 @@ define(
                         cielo24_turnaround: activeTranscriptPreferences.cielo24_turnaround,
                         three_play_turnaround: activeTranscriptPreferences.three_play_turnaround,
                         preferred_languages: activeTranscriptPreferences.preferred_languages,
+                        video_source_language: activeTranscriptPreferences.video_source_language,
                         global: false
                     })
                 );
@@ -278,8 +302,286 @@ define(
                 verifyPreferanceErrorState($courseVideoSettingsEl.find('.transcript-languages-wrapper'), false);
             });
 
+            it('shows provider selected view if active provider is present', function() {
+                var $selectedProviderContainerEl = $courseVideoSettingsEl.find('.transcript-provider-wrapper .selected-transcript-provider');
+                expect($selectedProviderContainerEl.find('span').html()).toEqual(courseVideoSettingsView.selectedProvider);
+                expect($selectedProviderContainerEl.find('button.action-change-provider')).toExist();
+                // Verify provider list view is not shown.
+                expect($courseVideoSettingsEl.find('.transcript-provider-wrapper .transcript-provider-group')).not.toExist();
+            });
+
+            it('does not show transcript preferences or organization credentials if N/A provider is saved', function() {
+                var $transcriptProvidersListEl;
+
+                renderCourseVideoSettingsView(null, transcriptionPlans);
+
+                // Check N/A provider
+                changeProvider('');
+
+                $transcriptProvidersListEl = $courseVideoSettingsEl.find('.transcript-provider-wrapper .transcript-provider-group');
+                expect($transcriptProvidersListEl.find('input[type=radio]').length).toEqual(3);
+                // Verify selected provider view is not shown.
+                expect($courseVideoSettingsEl.find('.transcript-provider-wrapper .selected-transcript-provider')).not.toExist();
+            });
+
+            it('does not show transcript preferences or organization credentials if N/A provider is checked', function() {
+                var $transcriptProvidersListEl;
+
+                renderCourseVideoSettingsView(null, transcriptionPlans);
+
+                // Check N/A provider
+                changeProvider('');
+
+                $transcriptProvidersListEl = $courseVideoSettingsEl.find('.transcript-provider-wrapper .transcript-provider-group');
+                expect($transcriptProvidersListEl.find('input[type=radio]').length).toEqual(3);
+
+                // Verify selected provider view is not shown.
+                expect($courseVideoSettingsEl.find('.transcript-provider-wrapper .selected-transcript-provider')).not.toExist();
+                // Verify transcript preferences are not shown.
+                expect($courseVideoSettingsEl.find('.course-video-transcript-preferances-wrapper:visible')).not.toExist();
+                // Verify org credentials are not shown.
+                expect($courseVideoSettingsEl.find('.organization-credentials-wrapper:visible')).not.toExist();
+            });
+
+            it('shows organization credentials when organization credentials for selected provider are not present', function() {
+                renderCourseVideoSettingsView(null, transcriptionPlans);
+
+                // Check Cielo24 provider
+                changeProvider('Cielo24');
+
+                // Verify organization credentials are shown.
+                expect($courseVideoSettingsEl.find('.organization-credentials-wrapper:visible')).toExist();
+
+                // Verify transcript preferences are not shown.
+                expect($courseVideoSettingsEl.find('.course-video-transcript-preferances-wrapper:visible')).not.toExist();
+            });
+
+            it('shows transcript preferences when organization credentials for selected provider are present', function() {
+                renderCourseVideoSettingsView(null, transcriptionPlans, transcriptOrganizationCredentials);
+
+                // Check Cielo24 provider
+                changeProvider('Cielo24');
+
+                // Verify organization credentials are not shown.
+                expect($courseVideoSettingsEl.find('.organization-credentials-wrapper:visible')).not.toExist();
+
+                // Verify transcript preferences are shown.
+                expect($courseVideoSettingsEl.find('.course-video-transcript-preferances-wrapper:visible')).toExist();
+            });
+
+            it('shows organization credentials view if clicked on change provider button', function() {
+                // Verify organization credentials view is not shown initially.
+                expect($courseVideoSettingsEl.find('.organization-credentials-content')).not.toExist();
+
+                // Click change button to render organization credentials view.
+                $courseVideoSettingsEl.find('.action-change-provider').click();
+
+                // Verify organization credentials is now shown.
+                expect($courseVideoSettingsEl.find('.organization-credentials-content')).toExist();
+            });
+
+            it('shows api secret input field if selected provider is 3Play Media', function() {
+                // Set selected provider to 3Play Media
+                courseVideoSettingsView.selectedProvider = '3PlayMedia';
+
+                // Click change button to render organization credentials view.
+                $courseVideoSettingsEl.find('.action-change-provider').click();
+
+                // Verify 3play api secret is present.
+                expect(
+                    $courseVideoSettingsEl.find('.' + courseVideoSettingsView.selectedProvider + '-api-secret')
+                ).toExist();
+
+                // Also verify api key is present.
+                expect(
+                    $courseVideoSettingsEl.find('.' + courseVideoSettingsView.selectedProvider + '-api-key')
+                ).toExist();
+            });
+
+            it('does not show api secret input field if selected provider is not 3Play Media', function() {
+                // Click change button to render organization credentials view.
+                $courseVideoSettingsEl.find('.action-change-provider').click();
+
+                // Verify 3Play Media api secret is not present.
+                 expect(
+                     $courseVideoSettingsEl.find('.' + courseVideoSettingsView.selectedProvider + '-api-secret')
+                 ).not.toExist();
+
+                // Also verify api key is present.
+                expect(
+                    $courseVideoSettingsEl.find('.' + courseVideoSettingsView.selectedProvider + '-api-key')
+                ).toExist();
+            });
+
+            it('shows warning message when changing organization credentials if present already', function() {
+                // Set selectedProvider organization credentials.
+                courseVideoSettingsView.transcriptOrganizationCredentials[courseVideoSettingsView.selectedProvider] = true;
+
+                // Click change button to render organization credentials view.
+                $courseVideoSettingsEl.find('.action-change-provider').click();
+
+                // Verify warning message is shown.
+                expect($courseVideoSettingsEl.find('.transcription-account-details.warning')).toExist();
+            });
+
+            it('does not show warning message when changing organization credentials if not present already', function() {
+                // Click change button to render organization credentials view.
+                $courseVideoSettingsEl.find('.action-change-provider').click();
+
+                // Verify warning message is not shown.
+                expect($courseVideoSettingsEl.find('.transcription-account-details.warning')).not.toExist();
+            });
+
+            it('shows validation errors if no organization credentials are provided when saving credentials', function() {
+                // Set selected provider to 3Play Media
+                courseVideoSettingsView.selectedProvider = '3PlayMedia';
+
+                // Click change button to render organization credentials view.
+                $courseVideoSettingsEl.find('.action-change-provider').click();
+
+                // Click save organization credentials button to save credentials.
+                $courseVideoSettingsEl.find('.action-update-org-credentials').click();
+
+                verifyPreferanceErrorState(
+                    $courseVideoSettingsEl.find('.' + courseVideoSettingsView.selectedProvider + '-api-key-wrapper'),
+                    true
+                );
+
+                verifyPreferanceErrorState(
+                    $courseVideoSettingsEl.find('.' + courseVideoSettingsView.selectedProvider + '-api-secret-wrapper'),
+                    true
+                );
+            });
+
+            it('saves organization credentials on clicking save credentials button', function() {
+                var requests = AjaxHelpers.requests(this);
+
+                // Click change button to render organization credentials view.
+                $courseVideoSettingsEl.find('.action-change-provider').click();
+
+                // Set organization credentials so as to pass validations.
+                $courseVideoSettingsEl.find('.' + courseVideoSettingsView.selectedProvider + '-api-key').val('testkey');
+
+                // Click save organization credentials button to save credentials.
+                $courseVideoSettingsEl.find('.action-update-org-credentials').click();
+
+                AjaxHelpers.expectRequest(
+                    requests,
+                    'POST',
+                    transcriptOrgCredentialsHandlerUrl,
+                    JSON.stringify({
+                        provider: activeTranscriptPreferences.provider,
+                        global: false
+                    })
+                );
+
+                // Send empty response.
+                AjaxHelpers.respondWithJson(requests, {});
+
+                // Verify that success message is shown.
+                expect($courseVideoSettingsEl.find('.course-video-settings-message-wrapper.success').html()).toEqual(
+                    '<div class="course-video-settings-message">' +
+                    '<span class="icon fa fa-check-circle" aria-hidden="true"></span>' +
+                    '<span>' + transcriptionPlans[courseVideoSettingsView.selectedProvider].display_name +
+                    ' credentials saved</span>' +
+                    '</div>'
+                );
+            });
+
+            it('shows selected provider view afer organization credentials saved', function() {
+                var requests = AjaxHelpers.requests(this);
+                renderCourseVideoSettingsView(null, transcriptionPlans);
+
+                // Verify selected provider view is not shown.
+                expect(
+                    $courseVideoSettingsEl.find('.transcript-provider-wrapper .selected-transcript-provider')
+                ).not.toExist();
+
+                // Verify provider list view is shown.
+                expect(
+                    $courseVideoSettingsEl.find('.transcript-provider-wrapper .transcript-provider-group')
+                ).toExist();
+
+                // Check Cielo24 provider
+                changeProvider('Cielo24');
+
+                // Set organization credentials so as to pass validations.
+                $courseVideoSettingsEl.find('.' + courseVideoSettingsView.selectedProvider + '-api-key').val('testkey');
+
+                // Click save organization credentials button to save credentials.
+                $courseVideoSettingsEl.find('.action-update-org-credentials').click();
+
+                AjaxHelpers.expectRequest(
+                    requests,
+                    'POST',
+                    transcriptOrgCredentialsHandlerUrl,
+                    JSON.stringify({
+                        provider: activeTranscriptPreferences.provider,
+                        global: false
+                    })
+                );
+
+                // Send empty response.
+                AjaxHelpers.respondWithJson(requests, {});
+
+                // Verify that success message is shown.
+                expect($courseVideoSettingsEl.find('.course-video-settings-message-wrapper.success').html()).toEqual(
+                    '<div class="course-video-settings-message">' +
+                    '<span class="icon fa fa-check-circle" aria-hidden="true"></span>' +
+                    '<span>' + transcriptionPlans[courseVideoSettingsView.selectedProvider].display_name +
+                    ' credentials saved</span>' +
+                    '</div>'
+                );
+
+                // Shows selected provider view after credentials are saved.
+                expect(
+                    $courseVideoSettingsEl.find('.transcript-provider-wrapper .selected-transcript-provider')
+                ).toExist();
+
+                // Verify provider list view is not shown.
+                expect(
+                    $courseVideoSettingsEl.find('.transcript-provider-wrapper .transcript-provider-group')
+                ).not.toExist();
+            });
+
+            it('shows error message on saving organization credentials if server sends error', function() {
+                var requests = AjaxHelpers.requests(this);
+
+                // Click change button to render organization credentials view.
+                $courseVideoSettingsEl.find('.action-change-provider').click();
+
+                // Set organization credentials so as to pass validations.
+                $courseVideoSettingsEl.find('.' + courseVideoSettingsView.selectedProvider + '-api-key').val('testkey');
+
+                // Click save organization credentials button to save credentials.
+                $courseVideoSettingsEl.find('.action-update-org-credentials').click();
+
+                AjaxHelpers.expectRequest(
+                    requests,
+                    'POST',
+                    transcriptOrgCredentialsHandlerUrl,
+                    JSON.stringify({
+                        provider: activeTranscriptPreferences.provider,
+                        global: false
+                    })
+                );
+
+                // Send error response.
+                AjaxHelpers.respondWithError(requests, 400, {
+                    error: 'Error message'
+                });
+
+                // Verify that error message is shown.
+                expect($courseVideoSettingsEl.find('.course-video-settings-message-wrapper.error').html()).toEqual(
+                    '<div class="course-video-settings-message">' +
+                    '<span class="icon fa fa-info-circle" aria-hidden="true"></span>' +
+                    '<span>Error message</span>' +
+                    '</div>'
+                );
+            });
+
             // TODO: Add more tests like clicking on add language, remove and their scenarios and some other tests
-            // like N/A selected, specific provider selected tests, specific preferance selected tests etc.
+            // for specific preferance selected tests etc.
         });
     }
 );
