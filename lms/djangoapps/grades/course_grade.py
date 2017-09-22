@@ -14,10 +14,6 @@ from .subsection_grade import ZeroSubsectionGrade
 from .subsection_grade_factory import SubsectionGradeFactory
 
 
-def uniqueify(iterable):
-    return OrderedDict([(item, None) for item in iterable]).keys()
-
-
 class CourseGradeBase(object):
     """
     Base class for Course Grades.
@@ -194,7 +190,7 @@ class CourseGradeBase(object):
         """
         return [
             self._get_subsection_grade(course_structure[subsection_key])
-            for subsection_key in uniqueify(course_structure.get_children(chapter_key))
+            for subsection_key in set(course_structure.get_children(chapter_key))
         ]
 
     @abstractmethod
