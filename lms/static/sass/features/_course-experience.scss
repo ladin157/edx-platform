@@ -78,7 +78,7 @@
         color: $black-t2;
       }
     }
-    // Course Goal Styling
+    // Course Goal Message Styling
     .goal-options-container {
       margin-top: $baseline;
       text-align: center;
@@ -144,6 +144,29 @@
 .course-sidebar {
   @include margin-left(0);
   @include padding-left($baseline);
+
+  .section-goals {
+    border: 1px solid $lms-border-color;
+    padding: $baseline*0.75;
+    border-radius: 5px;
+    position: relative;
+
+    .fa-pencil {
+      display: none;
+      position: absolute;
+      top: $baseline/4;
+      right: $baseline/4;
+    }
+
+    &:hover {
+      cursor: pointer;
+      background-color: #f9f9f9;
+
+      .fa-pencil {
+        display: inline;
+      }
+    }
+  }
 
   .section-tools li:not(:first-child) {
     margin-top: ($baseline / 5);

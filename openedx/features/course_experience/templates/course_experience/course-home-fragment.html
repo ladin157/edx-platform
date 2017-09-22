@@ -103,6 +103,15 @@ from openedx.features.course_experience import UNIFIED_COURSE_TAB_FLAG, SHOW_REV
                 % endif
             </main>
             <aside class="course-sidebar layout-col layout-col-a">
+                % if cur_goal:
+                    <div class="section section-goals">
+                        <div class="current_goal">
+                            <b>${_("Current Goal: ")}</b>
+                            ${goal_options[cur_goal.goal_key]}
+                            <i class="fa fa-pencil" aria-hidden="true"></i>
+                        </div>
+                    </div>
+                % endif
                 % if course_tools:
                     <div class="section section-tools">
                         <h3 class="hd-6">${_("Course Tools")}</h3>
