@@ -17,6 +17,7 @@ from edx_ace.message import Message
 from edx_ace.recipient import Recipient
 from edx_ace.utils.date import deserialize
 from opaque_keys.edx.keys import CourseKey
+from lms.djangoapps.experiments.utils import check_and_get_upgrade_link
 
 from edxmako.shortcuts import marketing_link
 from openedx.core.djangoapps.schedules.message_type import ScheduleMessageType
@@ -84,7 +85,14 @@ def _recurring_nudge_schedule_send(site_id, msg_str):
     ace.send(msg)
 
 
-def _recurring_nudge_schedules_for_hour(target_hour, org_list, exclude_orgs=False):
+def breakpointAtESTHour(estHour, target_hour):
+    import pdb
+    estToUtcHourDifference = 4
+    if target_hour.hour == estHour + estToUtcHourDifference:
+        pdb.set_trace()
+
+
+def _gather_users_and_schedules_for_target_hour(target_hour, org_list, exclude_orgs):
     beginning_of_day = target_hour.replace(hour=0, minute=0, second=0)
     users = User.objects.filter(
         courseenrollment__schedule__start__gte=beginning_of_day,
@@ -122,8 +130,26 @@ def _recurring_nudge_schedules_for_hour(target_hour, org_list, exclude_orgs=Fals
     if "read_replica" in settings.DATABASES:
         schedules = schedules.using("read_replica")
 
-    dashboard_relative_url = reverse('dashboard')
+    return users, schedules
 
+
+def add_upsell_button_to_email_template(upgrade_data, template_context):
+    is_unverified = False
+    upsell_link = ''
+
+    if upgrade_data:
+        is_unverified = upgrade_data.is_enabled
+        upsell_link = upgrade_data.link
+
+    template_context['is_unverified_user'] = is_unverified
+    template_context['verification_purchase_link'] = upsell_link
+
+
+def _recurring_nudge_schedules_for_hour(target_hour, org_list, exclude_orgs=False):
+
+    users, schedules = _gather_users_and_schedules_for_target_hour(target_hour, org_list, exclude_orgs)
+
+    dashboard_relative_url = reverse('dashboard')
     for (user, user_schedules) in groupby(schedules, lambda s: s.enrollment.user):
         user_schedules = list(user_schedules)
         course_id_strs = [str(schedule.enrollment.course_id) for schedule in user_schedules]
@@ -132,6 +158,8 @@ def _recurring_nudge_schedules_for_hour(target_hour, org_list, exclude_orgs=Fals
             return u'{}{}'.format(settings.LMS_ROOT_URL, urlquote(relative_path))
 
         first_schedule = user_schedules[0]
+        upgrade_data = check_and_get_upgrade_link(user, first_schedule.enrollment.course_id)
+
         template_context = {
             'student_name': user.profile.name,
 
@@ -140,7 +168,6 @@ def _recurring_nudge_schedules_for_hour(target_hour, org_list, exclude_orgs=Fals
 
             # This is used by the bulk email optout policy
             'course_ids': course_id_strs,
-
             # Platform information
             'homepage_url': encode_url(marketing_link('ROOT')),
             'dashboard_url': absolute_url(dashboard_relative_url),
@@ -150,6 +177,10 @@ def _recurring_nudge_schedules_for_hour(target_hour, org_list, exclude_orgs=Fals
             'social_media_urls': encode_urls_in_dict(getattr(settings, 'SOCIAL_MEDIA_FOOTER_URLS', {})),
             'mobile_store_urls': encode_urls_in_dict(getattr(settings, 'MOBILE_STORE_URLS', {})),
         }
+
+        # Information for including upsell messaging in template.
+        add_upsell_button_to_email_template(upgrade_data, template_context)
+
         yield (user, first_schedule.enrollment.course.language, template_context)
 
 
