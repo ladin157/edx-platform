@@ -151,18 +151,34 @@
     border-radius: 5px;
     position: relative;
 
-    .fa-pencil {
-      display: none;
+    select {
+      border: none;
+      background-color: transparent;
+      cursor: pointer;
+    }
+
+    i {
       position: absolute;
       top: $baseline/4;
       right: $baseline/4;
+
+      &.fa-pencil {
+        display: none;
+      }
+
+      &.fa-check {
+        color: $success-color;
+      }
+
+      &.fa-close {
+        color: $error-color;
+      }
     }
 
     &:hover {
-      cursor: pointer;
       background-color: #f9f9f9;
 
-      .fa-pencil {
+      &.fa-pencil {
         display: inline;
       }
     }

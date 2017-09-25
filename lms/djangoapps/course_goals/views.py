@@ -4,6 +4,7 @@ Course Goals Views - includes REST API
 from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.http import HttpResponse
 from edx_rest_framework_extensions.authentication import JwtAuthentication
 from eventtracking import tracker
 from opaque_keys.edx.keys import CourseKey
@@ -56,7 +57,7 @@ class CourseGoalSerializer(serializers.ModelSerializer):
 
 class CourseGoalViewSet(viewsets.ModelViewSet):
     """
-    API calls to create and retrieve a course goal.
+    API calls to create and update a course goal.
 
     **Use Case**
         * Create a new goal for a user.
@@ -64,13 +65,9 @@ class CourseGoalViewSet(viewsets.ModelViewSet):
             Http400 is returned if the format of the request is not correct,
             the course_id or goal is invalid or cannot be found.
 
-        * Retrieve goal for a user and a particular course.
-
-            Http400 is returned if the format of the request is not correct,
-            or the course_id is invalid or cannot be found.
+        * Update an existing goal for a user
 
     **Example Requests**
-        GET /api/course_goals/v0/course_goals/
         POST /api/course_goals/v0/course_goals/
             Request data: {"course_key": <course-key>, "goal_key": "<goal-key>", "user": "<username>"}
 
@@ -79,6 +76,31 @@ class CourseGoalViewSet(viewsets.ModelViewSet):
     permission_classes = (permissions.IsAuthenticated, IsStaffOrOwner,)
     queryset = CourseGoal.objects.all()
     serializer_class = CourseGoalSerializer
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return CourseGoalSerializer
+        return CourseGoalSerializer
+
+    def create(self, validated_data):
+        """
+        Create a new goal if one does not exist, otherwise
+        update the existing goal.
+        """
+        user = validated_data.user
+        course_key = CourseKey.from_string(validated_data.data['course_key'])
+        goal_key = validated_data.data['goal_key']
+        goal = CourseGoal.objects.filter(user=user.id, course_key=course_key).first()
+        if goal:
+            goal.goal_key = goal_key
+            goal.save(update_fields=['goal_key'])
+        else:
+            CourseGoal.objects.create(
+                user=user,
+                course_key=course_key,
+                goal_key=goal_key,
+            )
+        return HttpResponse()
 
 
 @receiver(post_save, sender=CourseGoal, dispatch_uid="emit_course_goals_event")

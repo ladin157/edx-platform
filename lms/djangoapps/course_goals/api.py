@@ -5,6 +5,7 @@ from enum import Enum
 from opaque_keys.edx.keys import CourseKey
 from django.utils.translation import ugettext as _
 from openedx.core.djangolib.markup import Text
+from rest_framework.reverse import reverse
 
 from .models import CourseGoal
 
@@ -74,3 +75,10 @@ def get_goal_text(goal_option):
         CourseGoalOption.EXPLORE.value: Text(_('Explore the course')),
         CourseGoalOption.UNSURE.value: Text(_('Not sure yet')),
     }[goal_option]
+
+
+def get_goals_api_url(request):
+    """
+    Returns the endpoint for accessing REST Api.
+    """
+    return reverse('course_goals_api:v0:course_goal-list', request=request)

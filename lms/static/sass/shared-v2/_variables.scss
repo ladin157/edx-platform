@@ -68,6 +68,14 @@ $site-status-color: rgb(182,37,103) !default;
 
 $shadow-l1: rgba(0,0,0,0.1) !default;
 
+$error-color: rgb(203, 7, 18) !default;
+$warning-color: rgb(255, 192, 31) !default;
+$confirm-color: rgb(0, 132, 1) !default;
+$active-color: $blue !default;
+$highlight-color: rgb(255,255,0) !default;
+$alert-color: rgb(212, 64, 64) !default;
+$success-color: rgb(0, 155, 0) !default;
+
 // ----------------------------
 // #ALERTS
 // ----------------------------

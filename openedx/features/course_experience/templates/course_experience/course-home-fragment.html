@@ -107,7 +107,11 @@ from openedx.features.course_experience import UNIFIED_COURSE_TAB_FLAG, SHOW_REV
                     <div class="section section-goals">
                         <div class="current_goal">
                             <b>${_("Current Goal: ")}</b>
-                            ${goal_options[cur_goal.goal_key]}
+                            <select>
+                                % for goal, goal_text in goal_options.items():
+                                    <option value="${goal}" ${"selected" if cur_goal.goal_key == goal else ""}>${goal_text}</option>
+                                % endfor
+                            </select>
                             <i class="fa fa-pencil" aria-hidden="true"></i>
                         </div>
                     </div>
@@ -152,6 +156,9 @@ from openedx.features.course_experience import UNIFIED_COURSE_TAB_FLAG, SHOW_REV
         courseRunKey: "${course_key | n, js_escaped_string}",
         resumeCourseLink: ".action-resume-course",
         courseToolLink: ".course-tool-link",
+        goalApiUrl: "${goal_api_url | n, js_escaped_string}",
+        username: "${username | n, js_escaped_string}",
+        courseId: "${course.id | n, js_escaped_string}",
     });
 </%static:webpack>
 
