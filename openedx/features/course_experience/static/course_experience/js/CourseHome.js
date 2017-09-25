@@ -35,27 +35,27 @@ export class CourseHome {  // eslint-disable-line import/prefer-default-export
     const $iconIndicator = $('.section-goals i');
     $goalSelect.on('change', (event) => {
       // Send an ajax request to update the course goal
-      const new_goal_key = $(event.target).val();
-      $iconIndicator.removeClass().addClass("fa fa-spinner fa-pulse");
+      const newGoalKey = $(event.target).val();
+      $iconIndicator.removeClass().addClass('fa fa-spinner fa-pulse');
       $.ajax({
         method: 'POST',
         url: options.goalApiUrl,
         headers: { 'X-CSRFToken': $.cookie('csrftoken') },
         data: {
-          goal_key: new_goal_key,
+          goal_key: newGoalKey,
           course_key: options.courseId,
           user: options.username,
         },
         dataType: 'json',
         success: () => {
-          $iconIndicator.removeClass().addClass("fa fa-check");
+          $iconIndicator.removeClass().addClass('fa fa-check');
           $goalSelect.blur();
         },
         error: () => {
-          $iconIndicator.removeClass().addClass("fa fa-close");
+          $iconIndicator.removeClass().addClass('fa fa-close');
         },
       });
-    })
+    });
 
     // Dismissibility for in course messages
     $(document.body).on('click', '.course-message .dismiss', (event) => {

@@ -3,11 +3,16 @@ Course Goals Python API
 """
 from enum import Enum
 from opaque_keys.edx.keys import CourseKey
+from django.conf import settings
+from django.contrib import auth
 from django.utils.translation import ugettext as _
 from openedx.core.djangolib.markup import Text
 from rest_framework.reverse import reverse
 
 from .models import CourseGoal
+from course_modes.models import CourseMode
+from openedx.features.course_experience import ENABLE_COURSE_GOALS
+from student.models import CourseEnrollment
 
 
 def add_course_goal(user, course_id, goal_key):
@@ -82,3 +87,17 @@ def get_goals_api_url(request):
     Returns the endpoint for accessing REST Api.
     """
     return reverse('course_goals_api:v0:course_goal-list', request=request)
+
+
+def has_course_goal_permission(request, course_id, user_access):
+    """
+    Returns whether the user can access the course goal functionality.
+
+    Only authenticated users that are enrolled in a course that can be
+    verified can use this feature.     
+    """
+    course_key = CourseKey.from_string(course_id)
+    has_verified_mode = CourseMode.has_verified_mode(CourseMode.modes_for_course_dict(unicode(course_id)))
+    is_already_verified = CourseEnrollment.is_enrolled_as_verified(request.user, course_key)
+    return user_access['is_enrolled'] and has_verified_mode and not is_already_verified \
+            and ENABLE_COURSE_GOALS.is_enabled(course_key) and settings.FEATURES.get('ENABLE_COURSE_GOALS')

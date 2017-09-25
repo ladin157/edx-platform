@@ -46,6 +46,13 @@ class TestCourseGoalsAPI(EventTrackingTestCase, SharedModuleStoreTestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(len(CourseGoal.objects.filter(user=self.user, course_key=self.course.id)), 0)
 
+    def test_update_goal(self):
+        """ Ensures that repeated course goal post events do not create new instances of the goal. """
+        self.post_course_goal(valid=True, goal_key='explore')
+        self.post_course_goal(valid=True, goal_key='certify')
+        self.post_course_goal(valid=True, goal_key='unsure')
+        self.assertEqual(len(CourseGoal.objects.filter(user=self.user, course_key=self.course.id)), 1)
+
     def post_course_goal(self, valid=True, goal_key='certify'):
         """
         Sends a post request to set a course goal and returns the response.

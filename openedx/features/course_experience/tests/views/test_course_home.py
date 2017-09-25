@@ -45,6 +45,7 @@ TEST_COURSE_HOME_MESSAGE_ANONYMOUS = '/login'
 TEST_COURSE_HOME_MESSAGE_UNENROLLED = 'Enroll now'
 TEST_COURSE_HOME_MESSAGE_PRE_START = 'Course starts in'
 TEST_COURSE_GOAL_OPTIONS = 'goal-options-container'
+TEST_COURSE_GOAL_UPDATE_FIELD = 'section-goals'
 COURSE_GOAL_DISMISS_OPTION = 'unsure'
 
 QUERY_COUNT_TABLE_BLACKLIST = WAFFLE_TABLES
@@ -437,6 +438,36 @@ class TestCourseHomePageAccess(CourseHomePageTestCase):
         CourseEnrollment.enroll(user, audit_only_course.id)
         response = self.client.get(course_home_url(audit_only_course))
         self.assertNotContains(response, TEST_COURSE_GOAL_OPTIONS)
+
+    @override_waffle_flag(UNIFIED_COURSE_TAB_FLAG, active=True)
+    @override_waffle_flag(COURSE_PRE_START_ACCESS_FLAG, active=True)
+    @override_waffle_flag(ENABLE_COURSE_GOALS, active=True)
+    def test_course_goal_updates(self):
+        """
+        Ensure that the following five use cases work as expected.
+
+        1) Unenrolled users are not shown the update goal selection field.
+        2) Enrolled users are not shown the update goal selection field if they have not yet set a course goal.
+        3) Enrolled users are shown the update goal selection field if they have set a course goal.
+        """
+        # Create a course with a verified track.
+        verifiable_course = CourseFactory.create()
+        add_course_mode(verifiable_course, upgrade_deadline_expired=False)
+
+        # Verify that unenrolled users are not shown the update goal selection field.
+        user = self.create_user_for_course(verifiable_course, CourseUserType.UNENROLLED)
+        response = self.client.get(course_home_url(verifiable_course))
+        self.assertNotContains(response, TEST_COURSE_GOAL_UPDATE_FIELD)
+
+        # Verify that enrolled users that have not set a course goal are not shown the update goal selection field.
+        CourseEnrollment.enroll(user, verifiable_course.id)
+        response = self.client.get(course_home_url(verifiable_course))
+        self.assertNotContains(response, TEST_COURSE_GOAL_UPDATE_FIELD)
+
+        # Verify that enrolled users that have set a course goal are shown the update goal selection field.
+        add_course_goal(user, verifiable_course.id, COURSE_GOAL_DISMISS_OPTION)
+        response = self.client.get(course_home_url(verifiable_course))
+        self.assertContains(response, TEST_COURSE_GOAL_UPDATE_FIELD)
 
 
 class CourseHomeFragmentViewTests(ModuleStoreTestCase):

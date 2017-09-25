@@ -103,18 +103,20 @@ from openedx.features.course_experience import UNIFIED_COURSE_TAB_FLAG, SHOW_REV
                 % endif
             </main>
             <aside class="course-sidebar layout-col layout-col-a">
-                <div class="section section-goals ${'' if cur_goal else 'hidden'}">
-                    <div class="current_goal">
-                        <span class="sr">${_("Set your course goal:")}</span>
-                        <b>${_("Goal: ")}</b>
-                        <select>
-                            % for goal, goal_text in goal_options.items():
-                                <option value="${goal}" ${"selected" if cur_goal and cur_goal.goal_key == goal else ""}>${goal_text}</option>
-                            % endfor
-                        </select>
-                        <i class="fa fa-pencil" aria-hidden="true"></i>
+                % if has_goal_permission:
+                    <div class="section section-goals ${'' if cur_goal else 'hidden'}">
+                        <div class="current_goal">
+                            <span class="sr">${_("Set your course goal:")}</span>
+                            <h3 class="hd-6">${_("Goal: ")}</h3>
+                            <select>
+                                % for goal, goal_text in goal_options.items():
+                                    <option value="${goal}" ${"selected" if cur_goal and cur_goal.goal_key == goal else ""}>${goal_text}</option>
+                                % endfor
+                            </select>
+                            <i class="fa fa-pencil" aria-hidden="true"></i>
+                        </div>
                     </div>
-                </div>
+                % endif
                 % if course_tools:
                     <div class="section section-tools">
                         <h3 class="hd-6">${_("Course Tools")}</h3>

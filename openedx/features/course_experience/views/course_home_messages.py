@@ -15,15 +15,11 @@ from django.utils.translation import get_language, to_locale
 from opaque_keys.edx.keys import CourseKey
 from web_fragments.fragment import Fragment
 
-from course_modes.models import CourseMode
 from courseware.courses import get_course_with_access
-from lms.djangoapps.course_goals.api import CourseGoalOption, get_course_goal, get_goal_text, get_goals_api_url
+from lms.djangoapps.course_goals.api import CourseGoalOption, get_course_goal, get_goal_text, get_goals_api_url, has_course_goal_permission
 from openedx.core.djangoapps.plugin_api.views import EdxFragmentView
 from openedx.core.djangolib.markup import HTML, Text
 from openedx.features.course_experience import CourseHomeMessages
-from student.models import CourseEnrollment
-
-from .. import ENABLE_COURSE_GOALS
 
 
 class CourseHomeMessageFragmentView(EdxFragmentView):
@@ -136,11 +132,8 @@ def _register_course_home_messages(request, course_id, user_access, course_start
     # Only show the set course goal message for enrolled, unverified
     # users that have not yet set a goal in a course that allows for
     # verified statuses.
-    has_verified_mode = CourseMode.has_verified_mode(CourseMode.modes_for_course_dict(unicode(course.id)))
-    is_already_verified = CourseEnrollment.is_enrolled_as_verified(request.user, course_key)
     user_goal = get_course_goal(auth.get_user(request), course_key) if not request.user.is_anonymous() else None
-    if user_access['is_enrolled'] and has_verified_mode and not is_already_verified and not user_goal \
-            and ENABLE_COURSE_GOALS.is_enabled(course_key) and settings.FEATURES.get('ENABLE_COURSE_GOALS'):
+    if has_course_goal_permission(request, course_id, user_access) and not user_goal :
         goal_choices_html = Text(_(
             'To start, set a course goal by selecting the option below that best describes '
             'your learning plan. {goal_options_container}'

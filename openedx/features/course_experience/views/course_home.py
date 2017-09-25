@@ -16,7 +16,7 @@ from courseware.courses import (
     get_course_info_section,
     get_course_with_access,
 )
-from lms.djangoapps.course_goals.api import CourseGoalOption, get_course_goal, get_goal_text, get_goals_api_url
+from lms.djangoapps.course_goals.api import CourseGoalOption, get_course_goal, get_goal_text, get_goals_api_url, has_course_goal_permission
 from lms.djangoapps.courseware.exceptions import CourseAccessRedirect
 from lms.djangoapps.courseware.views.views import CourseTabView
 from opaque_keys.edx.keys import CourseKey
@@ -155,6 +155,9 @@ class CourseHomeFragmentView(EdxFragmentView):
         # Get the course tools enabled for this user and course
         course_tools = CourseToolsPluginManager.get_enabled_course_tools(request, course_key)
 
+        # Check if the user can access the course goal functionality
+        has_goal_permission = has_course_goal_permission(request, course_id, user_access)
+
         # Grab the current course goal
         goal_options = {goal_key: get_goal_text(goal_key) for goal_key in CourseGoalOption.get_course_goal_keys()}
         cur_goal = get_course_goal(request.user, course_key)
@@ -204,6 +207,7 @@ class CourseHomeFragmentView(EdxFragmentView):
             'uses_pattern_library': True,
             'upgrade_price': upgrade_price,
             'upgrade_url': upgrade_url,
+            'has_goal_permission': has_goal_permission,
             'goal_options': goal_options,
             'cur_goal': cur_goal,
         }

@@ -155,8 +155,9 @@
       display: none;
     }
 
-    b {
+    h3 {
       @include float(left); // For RTL purposes
+      @include margin-right($baseline/4);
     }
 
     select {
@@ -165,14 +166,14 @@
       cursor: pointer;
     }
 
+    &.fa-pencil {
+      display: none; // Only show the edit icon on hover
+    }
+
     i {
       @include right($baseline/4);
       position: absolute;
-      top: $baseline/4;
 
-      &.fa-pencil {
-        display: none;
-      }
 
       &.fa-check {
         color: $success-color;
@@ -186,7 +187,7 @@
     &:hover {
       background-color: #f9f9f9;
 
-      &.fa-pencil {
+      .fa-pencil {
         display: inline;
       }
     }
