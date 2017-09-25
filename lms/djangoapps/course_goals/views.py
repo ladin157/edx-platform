@@ -1,10 +1,12 @@
 """
 Course Goals Views - includes REST API
 """
+import json
+
 from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.http import HttpResponse
+from django.http import JsonResponse
 from edx_rest_framework_extensions.authentication import JwtAuthentication
 from eventtracking import tracker
 from opaque_keys.edx.keys import CourseKey
@@ -100,7 +102,8 @@ class CourseGoalViewSet(viewsets.ModelViewSet):
                 course_key=course_key,
                 goal_key=goal_key,
             )
-        return HttpResponse()
+        data = {'goal_key': str(goal_key)}
+        return JsonResponse(data, content_type="application/json")
 
 
 @receiver(post_save, sender=CourseGoal, dispatch_uid="emit_course_goals_event")

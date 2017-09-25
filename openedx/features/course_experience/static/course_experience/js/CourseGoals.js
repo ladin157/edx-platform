@@ -15,15 +15,15 @@ export class CourseGoals {  // eslint-disable-line import/prefer-default-export
           user: options.username,
         },
         dataType: 'json',
-        success: () => {
-          // LEARNER-2522 will address the success message
+        success: (data) => { // LEARNER-2522 will address the success message
+          $('.section-goals select').val(data.goal_key);
+          $('.section-goals').slideDown();
           const successMsg = gettext('Thank you for setting your course goal!');
           // xss-lint: disable=javascript-jquery-html
           $('.message-content').html(`<div class="success-message">${successMsg}</div>`);
         },
-        error: () => {
-          // LEARNER-2522 will address the error message
-          const errorMsg = gettext('There was an error in setting your goal, please reload the page and try again.'); // eslint-disable-line max-len
+        error: () => { // LEARNER-2522 will address the error message
+          const errorMsg = gettext('There was an error in setting your goal, please reload the page and try again.');
           // xss-lint: disable=javascript-jquery-html
           $('.message-content').html(`<div class="error-message"> ${errorMsg} </div>`);
         },

@@ -151,6 +151,14 @@
     border-radius: 5px;
     position: relative;
 
+    &.hidden {
+      display: none;
+    }
+
+    b {
+      @include float(left); // For RTL purposes
+    }
+
     select {
       border: none;
       background-color: transparent;
@@ -158,9 +166,9 @@
     }
 
     i {
+      @include right($baseline/4);
       position: absolute;
       top: $baseline/4;
-      right: $baseline/4;
 
       &.fa-pencil {
         display: none;
