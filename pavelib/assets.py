@@ -734,12 +734,10 @@ def webpack(options):
     Run a Webpack build.
     """
     settings = getattr(options, 'settings', Env.DEVSTACK_SETTINGS)
-    environment = 'NODE_ENV={node_env} STATIC_ROOT_LMS={static_root_lms} STATIC_ROOT_CMS={static_root_cms}'.format(
+    sh(cmd('NODE_ENV={node_env} $(npm bin)/webpack --watch --watch-poll=200 --output-path={static_root_cms}'.format(
         node_env="production" if settings != Env.DEVSTACK_SETTINGS else "development",
-        static_root_lms=Env.get_django_setting("STATIC_ROOT", "lms", settings=settings),
-        static_root_cms=Env.get_django_setting("STATIC_ROOT", "cms", settings=settings),
-    )
-    sh(cmd('{environment} $(npm bin)/webpack'.format(environment=environment)))
+        static_root_cms=Env.get_django_setting("STATIC_ROOT", "cms", settings=settings)
+    )))
 
 
 def execute_webpack_watch(settings=None):

@@ -19,6 +19,8 @@ var wpconfig = {
 
     entry: {
         // Studio
+        AssetsPage: './node_modules/@edx/studio-frontend/src/AssetsPage/index.jsx',
+        // if not-dev: AssetsPage: './node_modules/@edx/studio-frontend/dist/assets.min.js'
         Import: './cms/static/js/features/import/factories/import.js',
         StudioIndex: './cms/static/js/features_jsx/studio/index.jsx',
 
@@ -42,6 +44,11 @@ var wpconfig = {
     devtool: isProd ? false : 'source-map',
 
     plugins: [
+        /*
+         * needed in non-dev environment:
+        new ExtractTextPlugin('node_modules/@edx/studio-frontend/dist/studio-frontend.min.css'),
+        also more from https://github.com/edx/studio-frontend/commit/86ceb2f17fbd2436955d5d7bb093a0f113f55184
+        */
         new webpack.NoEmitOnErrorsPlugin(),
         new webpack.NamedModulesPlugin(),
         new webpack.DefinePlugin({
@@ -108,6 +115,42 @@ var wpconfig = {
                     namespacedRequireFiles
                 ],
                 use: 'babel-loader'
+            },
+            {
+                test: /\.(js|jsx)$/,
+                include: [
+                    /studio-frontend/,
+                    /paragon/
+                ],
+                use: 'babel-loader'
+            },
+            {
+                test: /.scss$/,
+                include: [
+                    /studio-frontend/,
+                    /paragon/
+                ],
+                use: [
+                    'style-loader',
+                    {
+                        loader: 'css-loader',
+                        options: {
+                            sourceMap: true,
+                            modules: true,
+                            localIdentName: '[path][name]__[local]--[hash:base64:5]'
+                        }
+                    },
+                    {
+                        loader: 'sass-loader',
+                        options: {
+                            sourceMap: true,
+                            data: '@import "bootstrap/scss/bootstrap-reboot";',
+                            includePaths: [
+                                path.join(__dirname, './node_modules/')
+                            ]
+                        }
+                    }
+                ]
             },
             {
                 test: /\.coffee$/,
