@@ -274,7 +274,6 @@ class CourseEndDate(DateSummary):
                 )
 
 
-
 class CertificateAvailableDate(DateSummary):
     """
     Displays the certificate available date of the course.
@@ -395,7 +394,9 @@ class VerifiedUpgradeDeadlineDate(DateSummary):
                     platform_name=settings.PLATFORM_NAME,
                     button_panel=HTML(
                         '<div class="message-actions">'
-                        '<a class="btn btn-upgrade" href="{upgrade_url}">{upgrade_label}</a>'
+                        '<a class="btn btn-upgrade"'
+                        'data-creative="original_message" data-position="course_message"'
+                        'href="{upgrade_url}">{upgrade_label}</a>'
                         '</div>'
                     ).format(
                         upgrade_url=self.link,
