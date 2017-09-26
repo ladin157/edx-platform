@@ -1,8 +1,6 @@
 """
 Course Goals Views - includes REST API
 """
-import json
-
 from django.contrib.auth import get_user_model
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -31,67 +29,57 @@ class CourseGoalSerializer(serializers.ModelSerializer):
         model = CourseGoal
         fields = ('user', 'course_key', 'goal_key')
 
-    def validate_goal_key(self, value):
-        """
-        Ensure that the goal_key is valid.
-        """
-        if value not in CourseGoalOption.get_course_goal_keys():
-            raise serializers.ValidationError(
-                'Provided goal key, {goal_key}, is not a valid goal key (options= {goal_options}).'.format(
-                    goal_key=value,
-                    goal_options=[option.value for option in CourseGoalOption],
-                )
-            )
-        return value
-
-    def validate_course_key(self, value):
-        """
-        Ensure that the course_key is valid.
-        """
-        course_key = CourseKey.from_string(value)
-        if not course_key:
-            raise serializers.ValidationError(
-                'Provided course_key ({course_key}) does not map to a course.'.format(
-                    course_key=course_key
-                )
-            )
-        return course_key
-
 
 class CourseGoalViewSet(viewsets.ModelViewSet):
     """
     API calls to create and update a course goal.
 
+    Validates incoming data to ensure that course_key maps to an actual
+    course and that the goal_key is a valid option.
+
     **Use Case**
         * Create a new goal for a user.
-
-            Http400 is returned if the format of the request is not correct,
-            the course_id or goal is invalid or cannot be found.
-
         * Update an existing goal for a user
 
     **Example Requests**
         POST /api/course_goals/v0/course_goals/
             Request data: {"course_key": <course-key>, "goal_key": "<goal-key>", "user": "<username>"}
 
+    Returns Http400 response if the course_key does not map to a known
+    course or if the goal_key does not map to a valid goal key.
     """
     authentication_classes = (JwtAuthentication, SessionAuthentication,)
     permission_classes = (permissions.IsAuthenticated, IsStaffOrOwner,)
     queryset = CourseGoal.objects.all()
     serializer_class = CourseGoalSerializer
 
-    def create(self, validated_data):
+    def create(self, post_data):
         """
         Create a new goal if one does not exist, otherwise
         update the existing goal.
         """
-        serializer = self.serializer_class(data=validated_data.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Ensure goal_key is valid
+        goal_key = post_data.data['goal_key']
+        if goal_key not in CourseGoalOption.get_course_goal_keys():
+            return Response(
+                'Provided goal key, {goal_key}, is not a valid goal key (options= {goal_options}).'.format(
+                    goal_key=goal_key,
+                    goal_options=[option.value for option in CourseGoalOption],
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        user = validated_data.user
-        course_key = CourseKey.from_string(validated_data.data['course_key'])
-        goal_key = validated_data.data['goal_key']
+        # Ensure course key is valid
+        course_key = CourseKey.from_string(post_data.data['course_key'])
+        if not course_key:
+            return Response(
+                'Provided course_key ({course_key}) does not map to a course.'.format(
+                    course_key=course_key
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = post_data.user
         goal = CourseGoal.objects.filter(user=user.id, course_key=course_key).first()
         if goal:
             goal.goal_key = goal_key

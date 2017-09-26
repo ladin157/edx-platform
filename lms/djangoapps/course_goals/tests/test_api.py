@@ -12,13 +12,14 @@ from xmodule.modulestore.tests.django_utils import SharedModuleStoreTestCase
 from xmodule.modulestore.tests.factories import CourseFactory
 
 TEST_PASSWORD = 'test'
+EVENT_NAME_ADDED = 'edx.course.goal.added'
+EVENT_NAME_UPDATED = 'edx.course.goal.updated'
 
 
 class TestCourseGoalsAPI(EventTrackingTestCase, SharedModuleStoreTestCase):
     """
     Testing the Course Goals API.
     """
-
     def setUp(self):
         # Create a course with a verified track
         super(TestCourseGoalsAPI, self).setUp()
@@ -36,7 +37,7 @@ class TestCourseGoalsAPI(EventTrackingTestCase, SharedModuleStoreTestCase):
     def test_add_valid_goal(self):
         """ Ensures a correctly formatted post succeeds. """
         response = self.post_course_goal(valid=True)
-        self.assert_events_emitted()
+        self.assertEqual(self.get_event(1)['name'], EVENT_NAME_ADDED)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(CourseGoal.objects.filter(user=self.user, course_key=self.course.id)), 1)
 
@@ -51,6 +52,7 @@ class TestCourseGoalsAPI(EventTrackingTestCase, SharedModuleStoreTestCase):
         self.post_course_goal(valid=True, goal_key='explore')
         self.post_course_goal(valid=True, goal_key='certify')
         self.post_course_goal(valid=True, goal_key='unsure')
+        self.assertEqual(self.get_event(-1)['name'], EVENT_NAME_UPDATED)
         self.assertEqual(len(CourseGoal.objects.filter(user=self.user, course_key=self.course.id)), 1)
 
     def post_course_goal(self, valid=True, goal_key='certify'):
