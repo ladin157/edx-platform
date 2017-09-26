@@ -4,6 +4,9 @@
 from django.utils.translation import ugettext as _
 from openedx.core.djangolib.markup import HTML, Text
 from course_modes.models import CourseMode
+from openedx.core.djangoapps.certificates.api import display_date_for_certificate
+from datetime import datetime
+from pytz import UTC
 %>
 <%namespace name='static' file='../static_content.html'/>
 
@@ -27,11 +30,10 @@ elif cert_status['status'] == 'notpassing':
 else:
     status_css_class = 'course-status-processing'
 %>
-% if not (cert_status['status'] == 'processing' and course_overview.self_paced):
+
+% if not cert_status['status'] == 'processing':
   <div class="message message-status ${status_css_class} is-shown">
-  % if cert_status['status'] == 'processing' and not course_overview.self_paced:
-    <p class="message-copy">${_("Final course details are being wrapped up at this time. Your final standing will be available shortly.")}</p>
-  % elif cert_status['status'] in ('generating', 'ready', 'notpassing', 'restricted', 'auditing', 'unverified'):
+  % if cert_status['status'] in ('generating', 'ready', 'notpassing', 'restricted', 'auditing', 'unverified'):
     <p class="message-copy">${_("Your final grade:")}
     <span class="grade-value">${"{0:.0f}%".format(float(cert_status['grade'])*100)}</span>.
       % if cert_status['status'] == 'notpassing':
@@ -54,6 +56,10 @@ else:
         ${Text(_("Your certificate was not issued because you do not have a current verified identity with {platform_name}. ")).format(platform_name=settings.PLATFORM_NAME)}
         <a href="${reverify_link}"> ${Text(_("Verify your identity now."))}</a>
       </p>
+      % elif cert_status['status'] == 'generating' or cert_status['status'] == 'ready' and datetime.now(UTC) < course_overview.certificate_available_date:
+          <p class="message-copy">
+            ${_("Your certificate will be available on or before {date}").format(date=course_overview.certificate_available_date)}
+          </p>
       % endif
     </p>
   % endif
