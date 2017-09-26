@@ -57,6 +57,10 @@ export class CourseHome {  // eslint-disable-line import/prefer-default-export
       });
     });
 
+    $iconIndicator.click(() => {
+        $goalSelect.focus();
+    });
+
     // Dismissibility for in course messages
     $(document.body).on('click', '.course-message .dismiss', (event) => {
       $(event.target).closest('.course-message').hide();

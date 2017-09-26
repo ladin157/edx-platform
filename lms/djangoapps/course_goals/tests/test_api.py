@@ -37,7 +37,7 @@ class TestCourseGoalsAPI(EventTrackingTestCase, SharedModuleStoreTestCase):
     def test_add_valid_goal(self):
         """ Ensures a correctly formatted post succeeds. """
         response = self.post_course_goal(valid=True)
-        self.assertEqual(self.get_event(1)['name'], EVENT_NAME_ADDED)
+        self.assertEqual(self.get_event(-1)['name'], EVENT_NAME_ADDED)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(len(CourseGoal.objects.filter(user=self.user, course_key=self.course.id)), 1)
 

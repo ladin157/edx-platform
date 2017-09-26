@@ -169,7 +169,7 @@ def _register_course_home_messages(request, course_id, user_access, course_start
                 '{initial_tag}{goal_text}{closing_tag}'
             ).format(
                 initial_tag=HTML(
-                    '<div tabindex="0" aria-label="{aria_label_choice}" class="goal-option {col_sel} btn" '
+                    '<button tabindex="0" aria-label="{aria_label_choice}" class="goal-option {col_sel} btn" '
                     'data-choice="{goal_key}">'
                 ).format(
                     goal_key=goal_key,
@@ -179,7 +179,7 @@ def _register_course_home_messages(request, course_id, user_access, course_start
                     col_sel='col-' + str(int(math.floor(12 / len(goal_options))))
                 ),
                 goal_text=goal_text,
-                closing_tag=HTML('</div>')
+                closing_tag=HTML('</button>')
             )
 
         CourseHomeMessages.register_info_message(

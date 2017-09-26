@@ -31,9 +31,9 @@ export class CourseGoals {  // eslint-disable-line import/prefer-default-export
     });
 
     // Allow goal selection with an enter press for accessibility purposes
-    $('.goal-option').keyup((e) => {
+    $('.goal-option').keypress((e) => {
       if (e.which === 13) {
-        $(e.target).trigger('click');
+        $(e.target).click();
       }
     });
   }
