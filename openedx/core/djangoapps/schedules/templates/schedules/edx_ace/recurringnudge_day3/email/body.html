@@ -46,14 +46,14 @@
                 style="
                     color: #ffffff;
                     text-decoration: none;
-                    border-radius: 4px;
-                    -webkit-border-radius: 4px;
-                    -moz-border-radius: 4px;
+                    border-radius: .3rem;
+                    -webkit-border-radius: .3rem;
+                    -moz-border-radius: .3rem;
                     background-color: #005686;
-                    border-top: 2px solid #005686;
-                    border-bottom: 2px solid #005686;
-                    border-right: 2px solid #005686;
-                    border-left: 2px solid #005686;
+                    border-top: .15rem solid #005686;
+                    border-bottom: .15rem solid #005686;
+                    border-right: .15rem solid #005686;
+                    border-left: .15rem solid #005686;
                     display: inline-block;
                     padding: 1rem 5rem;
                 ">
@@ -61,27 +61,27 @@
                     <font color="#ffffff"><b>{% trans "Start learning now" %}</b></font>
                 </a>
             </p>
-            {% if is_unverified_user %}
+            {% if show_upsell %}
             <p>
-                <a href="{{ verification_purchase_link }}"
+                <a href="{{ upsell_link }}"
                    style="
                     color: #1e8142;
                     text-decoration: none;
-                    border-radius: 4px;
-                    -webkit-border-radius: 4px;
-                    -moz-border-radius: 4px;
+                    border-radius: .3rem;
+                    -webkit-border-radius: .3rem;
+                    -moz-border-radius: .3rem;
                     background-color: #FFFFFF;
-                    border-top: 2px solid #1e8142;
-                    border-bottom: 2px solid #1e8142;
-                    border-right: 2px solid #1e8142;
-                    border-left: 2px solid #1e8142;
+                    border-top: .15rem solid #1e8142;
+                    border-bottom: .15rem solid #1e8142;
+                    border-right: .15rem solid #1e8142;
+                    border-left: .15rem solid #1e8142;
                     display: inline-block;
                     padding: 1rem 6.1rem;
                     ">
                     <font color="#1e8142"><b>{% trans "Upgrade Now" %}</b></font>
                 </a>
-                {% endif %}
             </p>
+            {% endif %}
         </td>
     </tr>
 </table>

@@ -119,7 +119,7 @@ def _recurring_nudge_schedules_for_hour(target_hour, org_list, exclude_orgs=Fals
         }
 
         # Information for including upsell messaging in template.
-        add_upsell_button_to_email_template(upgrade_data, template_context)
+        _add_upsell_button_to_email_template(upgrade_data, template_context)
 
         yield (user, first_schedule.enrollment.course.language, template_context)
 
@@ -165,16 +165,16 @@ def _gather_users_and_schedules_for_target_hour(target_hour, org_list, exclude_o
     return users, schedules
 
 
-def add_upsell_button_to_email_template(upgrade_data, template_context):
-    is_unverified = False
+def _add_upsell_button_to_email_template(upgrade_data, template_context):
+    show_upsell = False
     upsell_link = ''
 
     if upgrade_data:
-        is_unverified = upgrade_data.is_enabled
+        show_upsell = upgrade_data.is_enabled
         upsell_link = upgrade_data.link
 
-    template_context['is_unverified_user'] = is_unverified
-    template_context['verification_purchase_link'] = upsell_link
+    template_context['show_upsell'] = show_upsell
+    template_context['upsell_link'] = upsell_link
 
 
 def encode_url(url):
