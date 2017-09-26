@@ -132,8 +132,8 @@ def _register_course_home_messages(request, course_id, user_access, course_start
     # Only show the set course goal message for enrolled, unverified
     # users that have not yet set a goal in a course that allows for
     # verified statuses.
-    user_goal = get_course_goal(auth.get_user(request), course_key) if not request.user.is_anonymous() else None
-    if has_course_goal_permission(request, course_id, user_access) and not user_goal :
+    user_goal = get_course_goal(auth.get_user(request), course_key)
+    if has_course_goal_permission(request, course_id, user_access) and not user_goal:
         goal_choices_html = Text(_(
             'To start, set a course goal by selecting the option below that best describes '
             'your learning plan. {goal_options_container}'

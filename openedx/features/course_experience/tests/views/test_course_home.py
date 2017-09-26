@@ -46,6 +46,7 @@ TEST_COURSE_HOME_MESSAGE_UNENROLLED = 'Enroll now'
 TEST_COURSE_HOME_MESSAGE_PRE_START = 'Course starts in'
 TEST_COURSE_GOAL_OPTIONS = 'goal-options-container'
 TEST_COURSE_GOAL_UPDATE_FIELD = 'section-goals'
+TEST_COURSE_GOAL_UPDATE_FIELD_HIDDEN = 'section-goals hidden'
 COURSE_GOAL_DISMISS_OPTION = 'unsure'
 
 QUERY_COUNT_TABLE_BLACKLIST = WAFFLE_TABLES
@@ -174,7 +175,7 @@ class TestCourseHomePage(CourseHomePageTestCase):
         course_home_url(self.course)
 
         # Fetch the view and verify the query counts
-        with self.assertNumQueries(44, table_blacklist=QUERY_COUNT_TABLE_BLACKLIST):
+        with self.assertNumQueries(46, table_blacklist=QUERY_COUNT_TABLE_BLACKLIST):
             with check_mongo_calls(4):
                 url = course_home_url(self.course)
                 self.client.get(url)
@@ -459,15 +460,16 @@ class TestCourseHomePageAccess(CourseHomePageTestCase):
         response = self.client.get(course_home_url(verifiable_course))
         self.assertNotContains(response, TEST_COURSE_GOAL_UPDATE_FIELD)
 
-        # Verify that enrolled users that have not set a course goal are not shown the update goal selection field.
+        # Verify that enrolled users that have not set a course goal are shown a hidden update goal selection field.
         CourseEnrollment.enroll(user, verifiable_course.id)
         response = self.client.get(course_home_url(verifiable_course))
-        self.assertNotContains(response, TEST_COURSE_GOAL_UPDATE_FIELD)
+        self.assertContains(response, TEST_COURSE_GOAL_UPDATE_FIELD_HIDDEN)
 
-        # Verify that enrolled users that have set a course goal are shown the update goal selection field.
+        # Verify that enrolled users that have set a course goal are shown a visible update goal selection field.
         add_course_goal(user, verifiable_course.id, COURSE_GOAL_DISMISS_OPTION)
         response = self.client.get(course_home_url(verifiable_course))
         self.assertContains(response, TEST_COURSE_GOAL_UPDATE_FIELD)
+        self.assertNotContains(response, TEST_COURSE_GOAL_UPDATE_FIELD_HIDDEN)
 
 
 class CourseHomeFragmentViewTests(ModuleStoreTestCase):

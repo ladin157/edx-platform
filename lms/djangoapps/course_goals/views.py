@@ -11,8 +11,9 @@ from edx_rest_framework_extensions.authentication import JwtAuthentication
 from eventtracking import tracker
 from opaque_keys.edx.keys import CourseKey
 from openedx.core.lib.api.permissions import IsStaffOrOwner
-from rest_framework import permissions, serializers, viewsets
+from rest_framework import permissions, serializers, viewsets, status
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.response import Response
 
 from .api import CourseGoalOption
 from .models import CourseGoal
@@ -79,16 +80,15 @@ class CourseGoalViewSet(viewsets.ModelViewSet):
     queryset = CourseGoal.objects.all()
     serializer_class = CourseGoalSerializer
 
-    def get_serializer_class(self):
-        if self.action == 'list':
-            return CourseGoalSerializer
-        return CourseGoalSerializer
-
     def create(self, validated_data):
         """
         Create a new goal if one does not exist, otherwise
         update the existing goal.
         """
+        serializer = self.serializer_class(data=validated_data.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         user = validated_data.user
         course_key = CourseKey.from_string(validated_data.data['course_key'])
         goal_key = validated_data.data['goal_key']
@@ -103,7 +103,7 @@ class CourseGoalViewSet(viewsets.ModelViewSet):
                 goal_key=goal_key,
             )
         data = {'goal_key': str(goal_key)}
-        return JsonResponse(data, content_type="application/json")
+        return JsonResponse(data, content_type="application/json", status=(200 if goal else 201))
 
 
 @receiver(post_save, sender=CourseGoal, dispatch_uid="emit_course_goals_event")

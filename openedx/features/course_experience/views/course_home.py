@@ -199,17 +199,17 @@ class CourseHomeFragmentView(EdxFragmentView):
             'resume_course_url': resume_course_url,
             'course_tools': course_tools,
             'dates_fragment': dates_fragment,
-            'goal_api_url': goal_api_url,
             'username': request.user.username,
+            'goal_api_url': goal_api_url,
+            'has_goal_permission': has_goal_permission,
+            'goal_options': goal_options,
+            'cur_goal': cur_goal,
             'update_message_fragment': update_message_fragment,
             'course_sock_fragment': course_sock_fragment,
             'disable_courseware_js': True,
             'uses_pattern_library': True,
             'upgrade_price': upgrade_price,
             'upgrade_url': upgrade_url,
-            'has_goal_permission': has_goal_permission,
-            'goal_options': goal_options,
-            'cur_goal': cur_goal,
         }
         html = render_to_string('course_experience/course-home-fragment.html', context)
         return Fragment(html)

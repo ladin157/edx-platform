@@ -4,7 +4,6 @@ Course Goals Python API
 from enum import Enum
 from opaque_keys.edx.keys import CourseKey
 from django.conf import settings
-from django.contrib import auth
 from django.utils.translation import ugettext as _
 from openedx.core.djangolib.markup import Text
 from rest_framework.reverse import reverse
@@ -36,9 +35,9 @@ def get_course_goal(user, course_key):
     """
     Given a user and a course_key, return their course goal.
 
-    If a course goal does not exist, returns None.
+    If the user is anonymouse or a course goal does not exist, returns None.
     """
-    course_goals = CourseGoal.objects.filter(user=user, course_key=course_key)
+    course_goals = CourseGoal.objects.filter(user=user, course_key=course_key) if not user.is_anonymous() else None
     return course_goals[0] if course_goals else None
 
 
@@ -93,11 +92,13 @@ def has_course_goal_permission(request, course_id, user_access):
     """
     Returns whether the user can access the course goal functionality.
 
-    Only authenticated users that are enrolled in a course that can be
-    verified can use this feature.     
+    Only authenticated, but not yet verified users that are enrolled
+    in a verifiable course can use this feature.
+
+    This feature is currently protected by a waffle flag.
     """
     course_key = CourseKey.from_string(course_id)
     has_verified_mode = CourseMode.has_verified_mode(CourseMode.modes_for_course_dict(unicode(course_id)))
     is_already_verified = CourseEnrollment.is_enrolled_as_verified(request.user, course_key)
     return user_access['is_enrolled'] and has_verified_mode and not is_already_verified \
-            and ENABLE_COURSE_GOALS.is_enabled(course_key) and settings.FEATURES.get('ENABLE_COURSE_GOALS')
+        and ENABLE_COURSE_GOALS.is_enabled(course_key) and settings.FEATURES.get('ENABLE_COURSE_GOALS')

@@ -145,6 +145,7 @@
   @include margin-left(0);
   @include padding-left($baseline);
 
+  // Course Goal Updates
   .section-goals {
     border: 1px solid $lms-border-color;
     padding: $baseline*0.75;
@@ -166,10 +167,6 @@
       cursor: pointer;
     }
 
-    &.fa-pencil {
-      display: none; // Only show the edit icon on hover
-    }
-
     i {
       @include right($baseline/4);
       position: absolute;
@@ -182,6 +179,10 @@
       &.fa-close {
         color: $error-color;
       }
+    }
+
+    .fa-pencil {
+      display: none; // Only show the edit icon on hover
     }
 
     &:hover {
