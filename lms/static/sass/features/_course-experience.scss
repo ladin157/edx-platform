@@ -79,6 +79,10 @@
       }
     }
     // Course Goal Message Styling
+    .success-message {
+      @include font-size(14);
+    }
+
     .goal-options-container {
       margin-top: $baseline;
       text-align: center;

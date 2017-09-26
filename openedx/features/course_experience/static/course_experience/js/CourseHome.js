@@ -58,7 +58,7 @@ export class CourseHome {  // eslint-disable-line import/prefer-default-export
     });
 
     $iconIndicator.click(() => {
-        $goalSelect.focus();
+      $goalSelect.focus();
     });
 
     // Dismissibility for in course messages

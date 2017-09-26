@@ -63,7 +63,6 @@ class CourseHomeTest(CourseHomeBaseTest):
     """
     Tests the course home page with course outline.
     """
-
     def test_course_home(self):
         """
         Smoke test of course goals, course outline, breadcrumbs to and from course outline, and bookmarks.

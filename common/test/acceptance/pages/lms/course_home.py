@@ -40,7 +40,7 @@ class CourseHomePage(CoursePage):
     def update_course_goal(self, valid=True):
         """ Update course goal select element with new goal_key. """
         new_goal_key = 'explore' if valid else 'invalid_key'
-        self.q(css='.current_goal select').val(new_goal_key).trigger('change')
+        self.browser.execute_script('$(".current-goal select").val({key}).trigger("change");'.format(key=new_goal_key))
         self.wait_for_ajax()
 
     def is_course_goal_success_message_shown(self):
@@ -49,12 +49,12 @@ class CourseHomePage(CoursePage):
 
     def is_course_goal_update_field_shown(self):
         """ Verifies course goal success message appears. """
-        return self.q(css='.current_goal').visible
+        return self.q(css='.current-goal').visible
 
     def is_course_goal_update_icon_shown(self, valid=True):
         """ Verifies course goal success or error icon appears. """
         correct_icon = 'check' if valid else 'close'
-        return self.q(css='.current_goal .fa-{icon}'.format(icon=correct_icon)).present
+        return self.q(css='.current-goal .fa-{icon}'.format(icon=correct_icon)).present
 
     def click_bookmarks_button(self):
         """ Click on Bookmarks button """
