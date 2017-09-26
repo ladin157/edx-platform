@@ -81,11 +81,21 @@ class CourseHomeTest(CourseHomeBaseTest):
         # Check that the tab lands on the course home page.
         self.assertTrue(self.course_home_page.is_browser_on_page())
 
-        # Check that a success message is shown when selecting a course goal
+        # Check that a success message and update course field are shown when selecting a course goal
         # TODO: LEARNER-2522: Ensure the correct message shows up for a particular goal choice
         self.assertFalse(self.course_home_page.is_course_goal_success_message_shown())
+        self.assertFalse(self.course_home_page.is_course_goal_update_field_shown())
         self.course_home_page.select_course_goal()
         self.assertTrue(self.course_home_page.is_course_goal_success_message_shown())
+        self.assertTrue(self.course_home_page.is_course_goal_update_field_shown())
+
+        # Check that updating the course returns a success icon
+        self.course_home_page.update_course_goal(valid=True)
+        self.assertTrue(self.course_home_page.is_course_goal_update_icon_shown(valid=True))
+
+        # Check that an invalid update on the course returns an error icon
+        self.course_home_page.update_course_goal(valid=False)
+        self.assertTrue(self.course_home_page.is_course_goal_update_icon_shown(valid=False))
 
         # Check that the course navigation appears correctly
         EXPECTED_SECTIONS = {
