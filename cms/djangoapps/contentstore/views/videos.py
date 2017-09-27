@@ -147,6 +147,51 @@ class StatusDisplayStrings(object):
         return _(StatusDisplayStrings._STATUS_MAP.get(val_status, StatusDisplayStrings._UNKNOWN))    # pylint: disable=translation-of-non-string
 
 
+from openedx.core.lib.token_utils import JwtBuilder
+from django.contrib.auth.models import User
+from edx_rest_api_client.client import EdxRestApiClient
+from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
+from slumber.exceptions import HttpClientError, HttpServerError
+class VideoPipelineApiClient(object):
+    """
+    Class for producing an EdxVideoPipeline service API client.
+    """
+
+    def __init__(self):
+        """
+        Initialize an EdxVideoPipeline service API client, authenticated using the EdxVideoPipeline worker username.
+        """
+        VIDEO_PIPELINE_BASE_URL = 'http://192.168.33.1:8080'    #
+        VIDEO_PIPELINE_API_URL =  VIDEO_PIPELINE_BASE_URL + '/api'
+        VIDEO_PIPELINE_WORKER_USERNAME = 'staff' # settings.EdxVideoPipeline_WORKER_USERNAME
+        self.user = User.objects.get(username=VIDEO_PIPELINE_WORKER_USERNAME)
+        jwt = JwtBuilder(self.user).build_token([])
+        self.client = EdxRestApiClient(
+            VIDEO_PIPELINE_API_URL, # configuration_helpers.get_value('VIDEO_PIPELINE_API_URL', 'settings.VIDEO_PIPELINE_API_URL'),
+            jwt=jwt
+        )
+
+    def post_organization_credentials(self):
+        """
+        Create trascript organization credentials.
+        """
+        endpoint = getattr(self.client, 'courses')  # transcript-organization-credentials# pylint: disable=literal-used-as-attribute
+        try:
+            data = {
+                "course_name": "Demo Course",
+                "institution": "edx",
+                "edx_classid": "1",
+                "semesterid": "1"
+            }
+            endpoint.post(data=data)
+        except (HttpClientError, HttpServerError) as exc:
+            message = (
+                "An error occured while posting data"
+            )
+            LOGGER.exception(message)
+            raise Exception(message)
+
+
 @expect_json
 @login_required
 @require_http_methods(("GET", "POST", "DELETE"))
@@ -166,6 +211,8 @@ def videos_handler(request, course_key_string, edx_video_id=None):
     DELETE
         soft deletes a video for particular course
     """
+    video_piepline_client = VideoPipelineApiClient()
+    video_piepline_client.post_organization_credentials()
     course = _get_and_validate_course(course_key_string, request.user)
 
     if not course:
