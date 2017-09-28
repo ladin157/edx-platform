@@ -1,0 +1,11 @@
+<div class="row">
+    <div class="col-sm-12">
+        <p><%- gettext('1 file uploaded:') %></p>
+    </div>
+</div>
+<div class="row">
+	<div class="col-sm-12">
+	<span class="file-name"><%- fileName %></span>
+	<span class="file-action"><a href="#"><%- gettext('Remove file') %></a></span>
+	</div>
+</div>
