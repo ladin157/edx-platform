@@ -98,7 +98,6 @@ def _recurring_nudge_schedules_for_hour(target_hour, org_list, exclude_orgs=Fals
             return u'{}{}'.format(settings.LMS_ROOT_URL, urlquote(relative_path))
 
         first_schedule = user_schedules[0]
-        upgrade_data = check_and_get_upgrade_link(user, first_schedule.enrollment.course_id)
 
         template_context = {
             'student_name': user.profile.name,
@@ -119,7 +118,7 @@ def _recurring_nudge_schedules_for_hour(target_hour, org_list, exclude_orgs=Fals
         }
 
         # Information for including upsell messaging in template.
-        _add_upsell_button_to_email_template(upgrade_data, template_context)
+        _add_upsell_button_to_email_template(user, first_schedule, template_context)
 
         yield (user, first_schedule.enrollment.course.language, template_context)
 
@@ -165,12 +164,33 @@ def _gather_users_and_schedules_for_target_hour(target_hour, org_list, exclude_o
     return users, schedules
 
 
-def _add_upsell_button_to_email_template(upgrade_data, template_context):
-    show_upsell = False
+def _should_user_be_upsold(enrollment):
+    enrollment_mode = None
+    is_active = None
+
+    if enrollment:
+        enrollment_mode = enrollment.mode
+        is_active = enrollment.is_active
+
+    # Return `true` if user is not enrolled in course
+    if enrollment_mode is None and is_active is None:
+        return True
+
+    import pdb
+    pdb.set_trace()
+    # Show the summary if user enrollment is in which allow user to upsell
+    return is_active and enrollment_mode in ["Verified", "Professional"]
+
+
+def _add_upsell_button_to_email_template(a_user, a_schedule, template_context):
+    show_upsell = _should_user_be_upsold(a_schedule.enrollment)
+    # Check and upgrade link performs a query on CourseMode, which is triggering failures in
+    # test_send_recurring_nudge.py
+    upgrade_data = check_and_get_upgrade_link(a_user, a_schedule.enrollment.course_id)
+
     upsell_link = ''
 
     if upgrade_data:
-        show_upsell = upgrade_data.is_enabled
         upsell_link = upgrade_data.link
 
     template_context['show_upsell'] = show_upsell
