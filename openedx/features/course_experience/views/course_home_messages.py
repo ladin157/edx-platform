@@ -72,7 +72,7 @@ class CourseHomeMessageFragmentView(EdxFragmentView):
 
         # Register a course goal message, if appropriate
         if _should_show_course_goal_message(request, course, user_access):
-            _register_course_goal_message(request, course, user_access)
+            _register_course_goal_message(request, course)
 
         # Grab the relevant messages
         course_home_messages = list(CourseHomeMessages.user_messages(request))
@@ -218,10 +218,7 @@ def _register_course_goal_message(request, course):
 
     CourseHomeMessages.register_info_message(
         request,
-        HTML('{goal_choices_html}{closing_tag}').format(
-            goal_choices_html=goal_choices_html,
-            closing_tag=HTML('</div>')
-        ),
+        goal_choices_html,
         title=Text(_('Welcome to {course_display_name}')).format(
             course_display_name=course.display_name
         )

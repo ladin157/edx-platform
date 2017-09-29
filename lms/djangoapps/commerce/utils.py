@@ -101,7 +101,7 @@ class EcommerceService(object):
         Returns the URL for the user to upgrade, or None if not applicable.
         """
         enrollment = CourseEnrollment.get_enrollment(user, course_key)
-        verified_mode = enrollment.verified_mode
+        verified_mode = enrollment.verified_mode if enrollment else None
         if verified_mode:
             if self.is_enabled(user):
                 return self.get_checkout_page_url(verified_mode.sku)

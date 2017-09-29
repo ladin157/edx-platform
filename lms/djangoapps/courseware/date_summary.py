@@ -10,13 +10,12 @@ from babel.dates import format_date, format_time, format_timedelta
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.utils.functional import cached_property
-from django.utils.timezone import UTC
 from django.utils.translation import get_language, to_locale, ugettext_lazy
 from django.utils.translation import ugettext as _
 from lazy import lazy
 from pytz import timezone, utc
 
-from course_modes.models import CourseMode
+from course_modes.models import CourseMode, get_cosmetic_verified_display_price
 from lms.djangoapps.commerce.utils import EcommerceService
 from lms.djangoapps.verify_student.models import SoftwareSecurePhotoVerification, VerificationDeadline
 from openedx.core.djangoapps.certificates.api import can_show_certificate_available_date_field
@@ -184,12 +183,12 @@ class CourseStartDate(DateSummary):
         """
         Registers an alert if the course has not started yet.
         """
-        now = datetime.datetime.now(UTC())
+        now = datetime.datetime.now(utc)
         is_enrolled = CourseEnrollment.get_enrollment(request.user, course.id)
         if not course.start or not is_enrolled:
             return
         days_until_start = (course.start - now).days
-        if course.start > now and days_until_start <= settings.COURSE_MESSAGE_ALERT_DURATION_IN_DAYS:
+        if course.start > now:
             locale = to_locale(get_language())
             time_remaining_string = format_timedelta(course.start - now, locale=locale)
             if days_until_start > 0:
@@ -244,7 +243,7 @@ class CourseEndDate(DateSummary):
         """
         Registers an alert if the end date is approaching.
         """
-        now = datetime.datetime.now(UTC())
+        now = datetime.datetime.now(utc)
         is_enrolled = CourseEnrollment.get_enrollment(request.user, course.id)
         if not course.start or now < course.start or not is_enrolled:
             return
@@ -375,11 +374,10 @@ class VerifiedUpgradeDeadlineDate(DateSummary):
         """
         Registers an alert if the verification deadline is approaching.
         """
-        now = datetime.datetime.now(UTC())
-        verified_mode = self.enrollment.verified_mode if self.enrollment else None
-        if not UPGRADE_DEADLINE_MESSAGE.is_enabled(course.id) or not self.is_enabled:
+        now = datetime.datetime.now(utc)
+        upgrade_price = get_cosmetic_verified_display_price(course)
+        if not UPGRADE_DEADLINE_MESSAGE.is_enabled(course.id) or not self.is_enabled or not upgrade_price:
             return
-        upgrade_price = verified_mode.min_price if verified_mode else None
         days_left_to_upgrade = (self.date - now).days
         if self.date > now and days_left_to_upgrade <= settings.COURSE_MESSAGE_ALERT_DURATION_IN_DAYS:
             locale = to_locale(get_language())
@@ -400,9 +398,7 @@ class VerifiedUpgradeDeadlineDate(DateSummary):
                         '</div>'
                     ).format(
                         upgrade_url=self.link,
-                        upgrade_label=Text(_('Upgrade ({upgrade_price})')).format(
-                            upgrade_price='${upgrade_price}'.format(upgrade_price=upgrade_price),
-                        ),
+                        upgrade_label=Text(_('Upgrade ({upgrade_price})')).format(upgrade_price=upgrade_price),
                     )
                 ),
                 title=Text(_(
