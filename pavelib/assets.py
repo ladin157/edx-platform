@@ -64,10 +64,6 @@ NPM_INSTALLED_LIBRARIES = [
     'requirejs/require.js',
     'underscore.string/dist/underscore.string.js',
     'underscore/underscore.js',
-    '@edx/studio-frontend/dist/assets.min.js',
-    '@edx/studio-frontend/dist/assets.min.js.map',
-    '@edx/studio-frontend/dist/studio-frontend.min.css',
-    '@edx/studio-frontend/dist/studio-frontend.min.css.map'
 ]
 
 # A list of NPM installed developer libraries that should be copied into the common
