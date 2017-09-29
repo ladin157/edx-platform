@@ -3,9 +3,10 @@ This module provides date summary blocks for the Course Info
 page. Each block gives information about a particular
 course-run-specific date which will be displayed to the user.
 """
+import crum
 import datetime
 
-from babel.dates import format_date, format_time, format_timedelta
+from babel.dates import format_timedelta
 
 from django.conf import settings
 from django.core.urlresolvers import reverse
@@ -13,7 +14,7 @@ from django.utils.functional import cached_property
 from django.utils.translation import get_language, to_locale, ugettext_lazy
 from django.utils.translation import ugettext as _
 from lazy import lazy
-from pytz import timezone, utc
+from pytz import utc
 
 from course_modes.models import CourseMode, get_cosmetic_verified_display_price
 from lms.djangoapps.commerce.utils import EcommerceService
@@ -23,9 +24,14 @@ from openedx.core.djangolib.markup import HTML, Text
 from openedx.features.course_experience import CourseHomeMessages, UPGRADE_DEADLINE_MESSAGE
 from student.models import CourseEnrollment
 
+from .context_processor import user_timezone_locale_prefs
+
 
 class DateSummary(object):
     """Base class for all date summary blocks."""
+
+    # A consistent representation of the current time.
+    CURRENT_TIME = datetime.datetime.now(utc)
 
     @property
     def css_class(self):
@@ -74,15 +80,6 @@ class DateSummary(object):
         """The text of the link."""
         return ''
 
-    @property
-    def time_zone(self):
-        """
-        The time zone in which to display -- defaults to UTC
-        """
-        return timezone(
-            self.user.preferences.model.get_value(self.user, "time_zone", "UTC")
-        )
-
     def __init__(self, course, user, course_id=None):
         self.course = course
         self.user = user
@@ -97,7 +94,7 @@ class DateSummary(object):
         if self.date is None:
             return ''
         locale = to_locale(get_language())
-        delta = self.date - datetime.datetime.now(utc)
+        delta = self.date - self.CURRENT_TIME
         try:
             relative_date = format_timedelta(delta, locale=locale)
         # Babel doesn't have translations for Esperanto, so we get
@@ -127,7 +124,7 @@ class DateSummary(object):
         future.
         """
         if self.date is not None:
-            return datetime.datetime.now(utc).date() <= self.date.date()
+            return self.CURRENT_TIME.date() <= self.date.date()
         return False
 
     def deadline_has_passed(self):
@@ -136,7 +133,52 @@ class DateSummary(object):
         Returns False otherwise.
         """
         deadline = self.date
-        return deadline is not None and deadline <= datetime.datetime.now(utc)
+        return deadline is not None and deadline <= self.CURRENT_TIME
+
+    @property
+    def time_remaining_string(self):
+        """
+        Returns the time remaining as a localized string.
+        """
+        locale = to_locale(get_language())
+        return format_timedelta(self.date - self.CURRENT_TIME, locale=locale)
+
+    def date_html(self, date_format='shortDate'):
+        """
+        Returns a representation of the date as HTML.
+
+        Note: this returns a span that will be localized on the client.
+        """
+        locale = to_locale(get_language())
+        user_timezone = user_timezone_locale_prefs(crum.get_current_request())['user_timezone']
+        return HTML(
+            '<span class="date localized-datetime" data-format="{date_format}" data-datetime="{date_time}"'
+            ' data-timezone="{user_timezone}" data-language="{user_language}">'
+            '</span>'.format(
+                date_format=date_format,
+                date_time=self.date,
+                user_timezone=user_timezone,
+                user_language=locale,
+            )
+        )
+
+    @property
+    def long_date_html(self):
+        """
+        Returns a long representation of the date as HTML.
+
+        Note: this returns a span that will be localized on the client.
+        """
+        return self.date_html(date_format='shortDate')
+
+    @property
+    def short_time_html(self):
+        """
+        Returns a short representation of the time as HTML.
+
+        Note: this returns a span that will be localized on the client.
+        """
+        return self.date_html(date_format='shortTime')
 
     def __repr__(self):
         return u'DateSummary: "{title}" {date} is_enabled={is_enabled}'.format(
@@ -161,7 +203,7 @@ class TodaysDate(DateSummary):
 
     @property
     def date(self):
-        return datetime.datetime.now(utc)
+        return self.CURRENT_TIME
 
     @property
     def title(self):
@@ -183,33 +225,28 @@ class CourseStartDate(DateSummary):
         """
         Registers an alert if the course has not started yet.
         """
-        now = datetime.datetime.now(utc)
         is_enrolled = CourseEnrollment.get_enrollment(request.user, course.id)
         if not course.start or not is_enrolled:
             return
-        days_until_start = (course.start - now).days
-        if course.start > now:
-            locale = to_locale(get_language())
-            time_remaining_string = format_timedelta(course.start - now, locale=locale)
+        days_until_start = (course.start - self.CURRENT_TIME).days
+        if course.start > self.CURRENT_TIME:
             if days_until_start > 0:
-                course_start_date = format_date(course.start, format='long', locale=locale)
                 CourseHomeMessages.register_info_message(
                     request,
                     Text(_(
                         "Don't forget to add a calendar reminder!"
                     )),
                     title=Text(_("Course starts in {time_remaining_string} on {course_start_date}.")).format(
-                        time_remaining_string=time_remaining_string,
-                        course_start_date=course_start_date,
+                        time_remaining_string=self.time_remaining_string,
+                        course_start_date=self.long_date_html,
                     )
                 )
             else:
-                course_start_time = format_time(course.start, format='short', locale=locale)
                 CourseHomeMessages.register_info_message(
                     request,
                     Text(_("Course starts in {time_remaining_string} at {course_start_time}.")).format(
-                        time_remaining_string=time_remaining_string,
-                        course_start_time=course_start_time,
+                        time_remaining_string=self.time_remaining_string,
+                        course_start_time=self.short_time_html,
                     )
                 )
 
@@ -227,7 +264,7 @@ class CourseEndDate(DateSummary):
 
     @property
     def description(self):
-        if datetime.datetime.now(utc) <= self.date:
+        if self.CURRENT_TIME <= self.date:
             mode, is_active = CourseEnrollment.enrollment_mode_for_user(self.user, self.course_id)
             if is_active and CourseMode.is_eligible_for_certificate(mode):
                 return _('To earn a certificate, you must complete all requirements before this date.')
@@ -243,32 +280,27 @@ class CourseEndDate(DateSummary):
         """
         Registers an alert if the end date is approaching.
         """
-        now = datetime.datetime.now(utc)
         is_enrolled = CourseEnrollment.get_enrollment(request.user, course.id)
-        if not course.start or now < course.start or not is_enrolled:
+        if not course.start or self.CURRENT_TIME < course.start or not is_enrolled:
             return
-        days_until_end = (course.end - now).days
-        if course.end > now and days_until_end <= settings.COURSE_MESSAGE_ALERT_DURATION_IN_DAYS:
-            locale = to_locale(get_language())
-            time_remaining_string = format_timedelta(course.end - now, locale=locale)
+        days_until_end = (course.end - self.CURRENT_TIME).days
+        if course.end > self.CURRENT_TIME and days_until_end <= settings.COURSE_MESSAGE_ALERT_DURATION_IN_DAYS:
             if days_until_end > 0:
-                course_end_date = format_date(course.end, format='long', locale=locale)
                 CourseHomeMessages.register_info_message(
                     request,
                     Text(self.description),
                     title=Text(_('This course is ending in {time_remaining_string} on {course_end_date}.')).format(
-                        time_remaining_string=time_remaining_string,
-                        course_end_date=course_end_date,
+                        time_remaining_string=self.time_remaining_string,
+                        course_end_date=self.long_date_html,
                     )
                 )
             else:
-                course_end_time = format_time(course.end, format='short', locale=locale)
                 CourseHomeMessages.register_info_message(
                     request,
                     Text(self.description),
                     title=Text(_('This course is ending in {time_remaining_string} at {course_end_time}.')).format(
-                        time_remaining_string=time_remaining_string,
-                        course_end_time=course_end_time,
+                        time_remaining_string=self.time_remaining_string,
+                        course_end_time=self.short_time_html,
                     )
                 )
 
@@ -293,7 +325,7 @@ class CertificateAvailableDate(DateSummary):
             can_show_certificate_available_date_field(self.course) and
             self.has_certificate_modes and
             self.date is not None and
-            datetime.datetime.now(utc) <= self.date and
+            self.CURRENT_TIME <= self.date and
             len(self.active_certificates) > 0
         )
 
@@ -374,14 +406,11 @@ class VerifiedUpgradeDeadlineDate(DateSummary):
         """
         Registers an alert if the verification deadline is approaching.
         """
-        now = datetime.datetime.now(utc)
         upgrade_price = get_cosmetic_verified_display_price(course)
         if not UPGRADE_DEADLINE_MESSAGE.is_enabled(course.id) or not self.is_enabled or not upgrade_price:
             return
-        days_left_to_upgrade = (self.date - now).days
-        if self.date > now and days_left_to_upgrade <= settings.COURSE_MESSAGE_ALERT_DURATION_IN_DAYS:
-            locale = to_locale(get_language())
-            time_remaining_string = format_timedelta(self.date - now, locale=locale)
+        days_left_to_upgrade = (self.date - self.CURRENT_TIME).days
+        if self.date > self.CURRENT_TIME and days_left_to_upgrade <= settings.COURSE_MESSAGE_ALERT_DURATION_IN_DAYS:
             CourseHomeMessages.register_info_message(
                 request,
                 Text(_(
@@ -404,7 +433,7 @@ class VerifiedUpgradeDeadlineDate(DateSummary):
                 title=Text(_(
                     "Don't forget, you have {time_remaining_string} left to upgrade to a Verified Certificate."
                 )).format(
-                    time_remaining_string=time_remaining_string,
+                    time_remaining_string=self.time_remaining_string,
                 )
             )
 
