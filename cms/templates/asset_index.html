@@ -58,9 +58,8 @@
     <div class="content">
         <div class="content-primary">
             % if waffle_flag_enabled:
-                <%static:webpack entry="AssetsPage">
-                    <div id="root"></div>
-                </%static:webpack>
+                <div id="root"></div>
+                <%static:webpack entry="AssetsPage"></%static:webpack>
             % else:
                 <div class="wrapper-assets"></div>
             % endif

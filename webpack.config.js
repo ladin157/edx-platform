@@ -19,7 +19,7 @@ var wpconfig = {
 
     entry: {
         // Studio
-        AssetsPage: './node_modules/@edx/studio-frontend/src/AssetsPage/index.jsx',
+        AssetsPage: './node_modules/@edx/studio-frontend/src/index.jsx',
         // if not-dev: AssetsPage: './node_modules/@edx/studio-frontend/dist/assets.min.js'
         Import: './cms/static/js/features/import/factories/import.js',
         StudioIndex: './cms/static/js/features_jsx/studio/index.jsx',
