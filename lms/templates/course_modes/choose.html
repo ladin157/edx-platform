@@ -50,6 +50,10 @@ from openedx.core.djangolib.markup import HTML, Text
             % endif
         });
     </script>
+    <%static:require_module module_name="js/currency/currency_factory" class_name="CurrencyFactory">
+    CurrencyFactory();
+    </%static:require_module>
+
 </%block>
 
 <%block name="content">

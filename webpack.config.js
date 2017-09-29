@@ -159,7 +159,8 @@ var wpconfig = {
         jquery: 'jQuery',
         logger: 'Logger',
         underscore: '_',
-        URI: 'URI'
+        URI: 'URI',
+        'which-country': 'wc'
     },
 
     watchOptions: {
