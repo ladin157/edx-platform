@@ -22,12 +22,28 @@ from openedx.core.djangolib.testing.utils import CacheIsolationTestCase, skip_un
 from student.tests.factories import UserFactory
 
 
+# Populating recurring nudge emails requires three queries
+# 1a) Find all users whose first enrollment during a day was in the specified hour window
+# 1b) All schedules for all enrollments for that day for users in that window (with 1a as a subquery)
+# 2) Check whether debugging is enabled
+CONST_QUERIES = 2
+
+# 1) Prefetch all course modes for those schedules
+# 2) (When not cached) load the DynamicUpgradeDeadlineConfiguration
+ON_SEND_QUERIES = 2
+
+# 1) (When not cached) load the CourseDynamicUpgradeDeadlineConfiguration
+PER_COURSE_QUERIES = 1
+
+
 @ddt.ddt
 @skip_unless_lms
 @skipUnless('openedx.core.djangoapps.schedules.apps.SchedulesConfig' in settings.INSTALLED_APPS,
             "Can't test schedules if the app isn't installed")
 class TestSendRecurringNudge(CacheIsolationTestCase):
     # pylint: disable=protected-access
+
+    ENABLED_CACHES = ['default']
 
     def setUp(self):
         super(TestSendRecurringNudge, self).setUp()
@@ -76,7 +92,7 @@ class TestSendRecurringNudge(CacheIsolationTestCase):
         ]
 
         test_time_str = serialize(datetime.datetime(2017, 8, 1, 18, tzinfo=pytz.UTC))
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(CONST_QUERIES + ON_SEND_QUERIES + PER_COURSE_QUERIES):
             tasks.recurring_nudge_schedule_hour(
                 self.site_config.site.id, 3, test_time_str, [schedules[0].enrollment.course.org],
             )
@@ -93,7 +109,7 @@ class TestSendRecurringNudge(CacheIsolationTestCase):
         schedule.enrollment.save()
 
         test_time_str = serialize(datetime.datetime(2017, 8, 1, 20, tzinfo=pytz.UTC))
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(CONST_QUERIES):
             tasks.recurring_nudge_schedule_hour(
                 self.site_config.site.id, 3, test_time_str, [schedule.enrollment.course.org],
             )
@@ -154,7 +170,7 @@ class TestSendRecurringNudge(CacheIsolationTestCase):
             )
 
         test_time_str = serialize(datetime.datetime(2017, 8, 2, 17, tzinfo=pytz.UTC))
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(CONST_QUERIES + ON_SEND_QUERIES + PER_COURSE_QUERIES):
             tasks.recurring_nudge_schedule_hour(
                 limited_config.site.id, 3, test_time_str, org_list=org_list, exclude_orgs=exclude_orgs,
             )
@@ -181,8 +197,12 @@ class TestSendRecurringNudge(CacheIsolationTestCase):
             for hour in (19, 20, 21)
         ]
 
+        expected_query_count = CONST_QUERIES
+        if messages_sent > 0:
+            expected_query_count += PER_COURSE_QUERIES + ON_SEND_QUERIES
+
         test_time_str = serialize(datetime.datetime(2017, 8, 1, test_hour, tzinfo=pytz.UTC))
-        with self.assertNumQueries(2):
+        with self.assertNumQueries(expected_query_count):
             tasks.recurring_nudge_schedule_hour(
                 self.site_config.site.id, 3, test_time_str, [schedules[0].enrollment.course.org],
             )
@@ -219,7 +239,7 @@ class TestSendRecurringNudge(CacheIsolationTestCase):
         with patch.object(tasks, '_recurring_nudge_schedule_send') as mock_schedule_send:
             mock_schedule_send.apply_async = lambda args, *_a, **_kw: sent_messages.append(args)
 
-            with self.assertNumQueries(2):
+            with self.assertNumQueries(CONST_QUERIES + ON_SEND_QUERIES + PER_COURSE_QUERIES):
                 tasks.recurring_nudge_schedule_hour(
                     self.site_config.site.id, day, test_time_str, [schedules[0].enrollment.course.org],
                 )

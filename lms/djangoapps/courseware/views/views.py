@@ -30,7 +30,6 @@ from courseware.courses import (
     sort_by_announcement,
     sort_by_start_date
 )
-from courseware.date_summary import VerifiedUpgradeDeadlineDate
 from courseware.masquerade import setup_masquerade
 from courseware.model_data import FieldDataCache
 from courseware.models import BaseStudentModuleHistory, StudentModule

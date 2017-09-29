@@ -19,7 +19,7 @@ from edx_ace.recipient import Recipient
 
 
 from course_modes.models import CourseMode, format_course_price
-from lms.djangoapps.experiments.utils import check_and_get_upgrade_link
+from lms.djangoapps.experiments.utils import check_and_get_upgrade_link_and_date
 
 
 class VerifiedUpgradeDeadlineReminder(ScheduleMessageType):
@@ -82,6 +82,8 @@ class VerifiedDeadlineResolver(RecipientResolver):
             def absolute_url(relative_path):
                 return u'{}{}'.format(settings.LMS_ROOT_URL, relative_path)
 
+            upgrade_link, upgrade_date = check_and_get_upgrade_link_and_date(user, enrollment)
+
             template_context = {
                 'user_full_name': user.profile.name,
                 'user_personal_address': user.profile.name if user.profile.name else user.username,
@@ -94,7 +96,7 @@ class VerifiedDeadlineResolver(RecipientResolver):
                 'course_url': absolute_url(course_root),
                 'course_image_url': absolute_url(course.course_image_url),
                 'course_end_time': course.end,
-                'course_verified_upgrade_url': check_and_get_upgrade_link(course, user),
+                'course_verified_upgrade_url': upgrade_link,
                 'course_verified_upgrade_price': format_course_price(course.verified_modes[0].min_price),
             }
 
