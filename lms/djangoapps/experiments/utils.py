@@ -48,7 +48,9 @@ def get_experiment_user_metadata_context(course, user):
     enrollment_time = None
     enrollment = None
     try:
-        enrollment = CourseEnrollment.objects.get(user_id=user.id, course_id=course.id)
+        enrollment = CourseEnrollment.objects.select_related(
+            'course'
+        ).get(user_id=user.id, course_id=course.id)
         if enrollment.is_active:
             enrollment_mode = enrollment.mode
             enrollment_time = enrollment.created
