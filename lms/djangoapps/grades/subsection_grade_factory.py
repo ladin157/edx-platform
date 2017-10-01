@@ -63,7 +63,7 @@ class SubsectionGradeFactory(object):
         )
         self._unsaved_subsection_grades.clear()
 
-    def update(self, subsection, only_if_higher=None, score_deleted=False):
+    def update(self, subsection, only_if_higher=None, score_deleted=False, read_only=True):
         """
         Updates the SubsectionGrade object for the student and subsection.
         """
@@ -91,8 +91,11 @@ class SubsectionGradeFactory(object):
                     ):
                         return orig_subsection_grade
 
-            grade_model = calculated_grade.update_or_create_model(self.student, score_deleted)
-            self._update_saved_subsection_grade(subsection.location, grade_model)
+            if read_only:
+                self._unsaved_subsection_grades[subsection.location] = calculated_grade
+            else:
+                grade_model = calculated_grade.update_or_create_model(self.student, score_deleted)
+                self._update_saved_subsection_grade(subsection.location, grade_model)
 
         return calculated_grade
 

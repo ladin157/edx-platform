@@ -24,7 +24,6 @@ from coursewarehistoryextended.fields import UnsignedBigIntAutoField, UnsignedBi
 from openedx.core.djangoapps.xmodule_django.models import CourseKeyField, UsageKeyField
 from request_cache import get_cache
 
-from .config import waffle
 import events
 
 
@@ -347,7 +346,7 @@ class PersistentSubsectionGrade(TimeStampedModel):
 
         Raises PersistentSubsectionGrade.DoesNotExist if applicable
         """
-        return cls.objects.select_related('visible_blocks').get(
+        return cls.objects.select_related('visible_blocks', 'override').get(
             user_id=user_id,
             course_id=usage_key.course_key,  # course_id is included to take advantage of db indexes
             usage_key=usage_key,
@@ -362,7 +361,7 @@ class PersistentSubsectionGrade(TimeStampedModel):
             user_id: The user associated with the desired grades
             course_key: The course identifier for the desired grades
         """
-        return cls.objects.select_related('visible_blocks').filter(
+        return cls.objects.select_related('visible_blocks', 'override').filter(
             user_id=user_id,
             course_id=course_key,
         )
@@ -373,28 +372,11 @@ class PersistentSubsectionGrade(TimeStampedModel):
         Wrapper for objects.update_or_create.
         """
         cls._prepare_params_and_visible_blocks(params)
+        cls._prepare_params_override(params, prefetched=False)
 
         first_attempted = params.pop('first_attempted')
         user_id = params.pop('user_id')
         usage_key = params.pop('usage_key')
-
-        # apply grade override if one exists before saving model
-        try:
-            override = PersistentSubsectionGradeOverride.objects.get(
-                grade__user_id=user_id,
-                grade__course_id=usage_key.course_key,
-                grade__usage_key=usage_key,
-            )
-            if override.earned_all_override is not None:
-                params['earned_all'] = override.earned_all_override
-            if override.possible_all_override is not None:
-                params['possible_all'] = override.possible_all_override
-            if override.earned_graded_override is not None:
-                params['earned_graded'] = override.earned_graded_override
-            if override.possible_graded_override is not None:
-                params['possible_graded'] = override.possible_graded_override
-        except PersistentSubsectionGradeOverride.DoesNotExist:
-            pass
 
         grade, _ = cls.objects.update_or_create(
             user_id=user_id,
@@ -403,23 +385,11 @@ class PersistentSubsectionGrade(TimeStampedModel):
             defaults=params,
         )
         if first_attempted is not None and grade.first_attempted is None:
-            if waffle.waffle().is_enabled(waffle.ESTIMATE_FIRST_ATTEMPTED):
-                grade.first_attempted = first_attempted
-            else:
-                grade.first_attempted = now()
+            grade.first_attempted = first_attempted
             grade.save()
 
         cls._emit_grade_calculated_event(grade)
         return grade
-
-    @classmethod
-    def _prepare_first_attempted_for_create(cls, params):
-        """
-        Update the value of 'first_attempted' to now() if we aren't
-        using score-based estimates.
-        """
-        if params['first_attempted'] is not None and not waffle.waffle().is_enabled(waffle.ESTIMATE_FIRST_ATTEMPTED):
-            params['first_attempted'] = now()
 
     @classmethod
     def create_grade(cls, **params):
@@ -427,24 +397,26 @@ class PersistentSubsectionGrade(TimeStampedModel):
         Wrapper for objects.create.
         """
         cls._prepare_params_and_visible_blocks(params)
-        cls._prepare_first_attempted_for_create(params)
 
         grade = cls.objects.create(**params)
         cls._emit_grade_calculated_event(grade)
         return grade
 
     @classmethod
-    def bulk_create_grades(cls, grade_params_iter, course_key):
+    def bulk_create_grades(cls, grade_params_iter, user_id, course_key):
         """
         Bulk creation of grades.
         """
         if not grade_params_iter:
             return
 
+        PersistentSubsectionGradeOverride.prefetch(user_id, course_key)
+
         map(cls._prepare_params, grade_params_iter)
         VisibleBlocks.bulk_get_or_create([params['visible_blocks'] for params in grade_params_iter], course_key)
         map(cls._prepare_params_visible_blocks_id, grade_params_iter)
-        map(cls._prepare_first_attempted_for_create, grade_params_iter)
+        map(cls._prepare_params_override, grade_params_iter)
+
         grades = [PersistentSubsectionGrade(**params) for params in grade_params_iter]
         grades = cls.objects.bulk_create(grades)
         for grade in grades:
@@ -482,6 +454,24 @@ class PersistentSubsectionGrade(TimeStampedModel):
         """
         params['visible_blocks_id'] = params['visible_blocks'].hash_value
         del params['visible_blocks']
+
+    @classmethod
+    def _prepare_params_override(cls, params, prefetched=True):
+        if prefetched:
+            get_override = PersistentSubsectionGradeOverride.get_from_pretched
+        else:
+            get_override = PersistentSubsectionGradeOverride.get_override
+
+        override = get_override(params['user_id'], params['usage_key'])
+        if override:
+            if override.earned_all_override is not None:
+                params['earned_all'] = override.earned_all_override
+            if override.possible_all_override is not None:
+                params['possible_all'] = override.possible_all_override
+            if override.earned_graded_override is not None:
+                params['earned_graded'] = override.earned_graded_override
+            if override.possible_graded_override is not None:
+                params['possible_graded'] = override.possible_graded_override
 
     @staticmethod
     def _emit_grade_calculated_event(grade):
@@ -626,3 +616,31 @@ class PersistentSubsectionGradeOverride(models.Model):
     possible_all_override = models.FloatField(null=True, blank=True)
     earned_graded_override = models.FloatField(null=True, blank=True)
     possible_graded_override = models.FloatField(null=True, blank=True)
+
+    CACHE_NAMESPACE = u"grades.models.PersistentSubsectionGradeOverride"
+
+    @classmethod
+    def prefetch(cls, user_id, course_key):
+        get_cache(cls.CACHE_NAMESPACE)[(user_id, course_key)] = {
+            override.grade.usage_key: override
+            for override in
+            cls.objects.filter(grade__user_id=user_id, grade__course_id=course_key)
+        }
+
+    @classmethod
+    def get_override(cls, user_id, usage_key):
+        try:
+            return cls.objects.get(
+                grade__user_id=user_id,
+                grade__course_id=usage_key.course_key,
+                grade__usage_key=usage_key,
+            )
+        except PersistentSubsectionGradeOverride.DoesNotExist:
+            pass
+
+    @classmethod
+    def get_from_pretched(cls, user_id, usage_key):
+        try:
+            return get_cache(cls.CACHE_NAMESPACE)[(user_id, usage_key.course_key)][usage_key]
+        except KeyError:
+            pass

@@ -164,7 +164,7 @@ class SubsectionGrade(SubsectionGradeBase):
             if subsection_grade
             if subsection_grade._should_persist_per_attempted()  # pylint: disable=protected-access
         ]
-        return PersistentSubsectionGrade.bulk_create_grades(params, course_key)
+        return PersistentSubsectionGrade.bulk_create_grades(params, student.id, course_key)
 
     def create_model(self, student):
         """

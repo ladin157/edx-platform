@@ -190,7 +190,7 @@ class CourseGradeBase(object):
         """
         return [
             self._get_subsection_grade(course_structure[subsection_key])
-            for subsection_key in set(course_structure.get_children(chapter_key))
+            for subsection_key in _uniqueify_and_keep_order(course_structure.get_children(chapter_key))
         ]
 
     @abstractmethod
@@ -225,6 +225,11 @@ class CourseGrade(CourseGradeBase):
         if self.force_update_subsections is true, via the lazy call
         to self.grader_result.
         """
+        # TODO update this code to be more functional and readable.
+        # Currently, it is hard to follow since there are plenty of
+        # side-effects. Once functional, force_update_subsections
+        # can be passed through and not confusingly stored and used
+        # at a later time.
         grade_cutoffs = self.course_data.course.grade_cutoffs
         self.percent = self._compute_percent(self.grader_result)
         self.letter_grade = self._compute_letter_grade(grade_cutoffs, self.percent)
@@ -244,10 +249,10 @@ class CourseGrade(CourseGradeBase):
         return False
 
     def _get_subsection_grade(self, subsection):
+        # Pass read_only=True so subsection grades can be persisted in bulk at the end.
         if self.force_update_subsections:
-            return self._subsection_grade_factory.update(subsection)
+            return self._subsection_grade_factory.update(subsection, read_only=True)
         else:
-            # Pass read_only here so the subsection grades can be persisted in bulk at the end.
             return self._subsection_grade_factory.create(subsection, read_only=True)
 
     @staticmethod
@@ -285,3 +290,7 @@ class CourseGrade(CourseGradeBase):
         nonzero_cutoffs = [cutoff for cutoff in grade_cutoffs.values() if cutoff > 0]
         success_cutoff = min(nonzero_cutoffs) if nonzero_cutoffs else None
         return success_cutoff and percent >= success_cutoff
+
+
+def _uniqueify_and_keep_order(iterable):
+    return OrderedDict([(item, None) for item in iterable]).keys()

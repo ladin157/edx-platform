@@ -16,7 +16,6 @@ from freezegun import freeze_time
 from mock import patch
 from opaque_keys.edx.locator import BlockUsageLocator, CourseLocator
 
-from lms.djangoapps.grades.config import waffle
 from lms.djangoapps.grades.models import (
     BLOCK_RECORD_LIST_VERSION,
     BlockRecord,
@@ -230,7 +229,7 @@ class PersistentSubsectionGradeTest(GradesModelTestCase):
         with self.assertRaises(IntegrityError):
             PersistentSubsectionGrade.create_grade(**self.params)
 
-    @ddt.data('course_version', 'subtree_edited_timestamp')
+    @ddt.data('course_version', 'subtree_edited_timestamp', 'first_attempted')
     def test_optional_fields(self, field):
         del self.params[field]
         PersistentSubsectionGrade.create_grade(**self.params)
@@ -242,7 +241,6 @@ class PersistentSubsectionGradeTest(GradesModelTestCase):
         ("possible_all", IntegrityError),
         ("earned_graded", IntegrityError),
         ("possible_graded", IntegrityError),
-        ("first_attempted", KeyError),
         ("visible_blocks", KeyError),
     )
     @ddt.unpack
@@ -261,19 +259,6 @@ class PersistentSubsectionGradeTest(GradesModelTestCase):
         if already_created:
             self.assertEqual(created_grade.id, updated_grade.id)
             self.assertEqual(created_grade.earned_all, 6)
-
-    @ddt.unpack
-    @ddt.data(
-        (True, datetime(2000, 1, 1, 12, 30, 45, tzinfo=pytz.UTC)),
-        (False, None),  # Use as now().  Freeze time needs this calculation to happen at test time.
-    )
-    def test_update_or_create_attempted(self, is_active, expected_first_attempted):
-        with freeze_time(now()):
-            if expected_first_attempted is None:
-                expected_first_attempted = now()
-            with waffle.waffle().override(waffle.ESTIMATE_FIRST_ATTEMPTED, active=is_active):
-                grade = PersistentSubsectionGrade.update_or_create_grade(**self.params)
-                self.assertEqual(grade.first_attempted, expected_first_attempted)
 
     def test_unattempted(self):
         self.params['first_attempted'] = None
@@ -298,12 +283,12 @@ class PersistentSubsectionGradeTest(GradesModelTestCase):
         self.assertEqual(grade.earned_all, 6.0)
 
     def test_update_or_create_event(self):
-        with patch('lms.djangoapps.grades.models.tracker') as tracker_mock:
+        with patch('lms.djangoapps.grades.events.tracker') as tracker_mock:
             grade = PersistentSubsectionGrade.update_or_create_grade(**self.params)
         self._assert_tracker_emitted_event(tracker_mock, grade)
 
     def test_create_event(self):
-        with patch('lms.djangoapps.grades.models.tracker') as tracker_mock:
+        with patch('lms.djangoapps.grades.events.tracker') as tracker_mock:
             grade = PersistentSubsectionGrade.create_grade(**self.params)
         self._assert_tracker_emitted_event(tracker_mock, grade)
 
@@ -456,7 +441,7 @@ class PersistentCourseGradesTest(GradesModelTestCase):
             PersistentCourseGrade.read(self.params["user_id"], self.params["course_id"])
 
     def test_update_or_create_event(self):
-        with patch('lms.djangoapps.grades.models.tracker') as tracker_mock:
+        with patch('lms.djangoapps.grades.events.tracker') as tracker_mock:
             grade = PersistentCourseGrade.update_or_create(**self.params)
         self._assert_tracker_emitted_event(tracker_mock, grade)
 
